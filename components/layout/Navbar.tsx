@@ -73,6 +73,12 @@ function IconBtn({
 
 export default function Navbar() {
   const pathname = usePathname();
+
+  // Hide customer Navbar on admin routes
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
+
   const activeCategory = activeFromPath(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);

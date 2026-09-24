@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { CATEGORIES } from "@/data/categories";
 import { productsHref } from "@/lib/utils";
 import NewsletterForm from "@/components/layout/NewsletterForm";
@@ -15,6 +18,12 @@ const SUPPORT_LINKS = [
 ];
 
 export default function Footer() {
+  const pathname = usePathname();
+
+  // Hide customer Footer on admin routes
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
   return (
     <footer className="bg-forest-deep text-cream">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.2fr] lg:px-8">
