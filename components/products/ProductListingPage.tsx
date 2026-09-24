@@ -1,10 +1,10 @@
-﻿import type { ProductCategory, CategorySlug } from "@/data/types";
+import type { ProductCategory, CategorySlug } from "@/data/types";
 import { getCategory } from "@/data/categories";
 import {
-  getAllListings,
-  getListingsByCategory,
-  searchListings,
-} from "@/data/products";
+  getDbAllListings,
+  getDbListingsByCategory,
+  searchDbListings,
+} from "@/data/db-products";
 import Breadcrumb from "@/components/products/Breadcrumb";
 import CategoryTabs from "@/components/products/CategoryTabs";
 import ProductBrowser from "@/components/products/ProductBrowser";
@@ -20,7 +20,7 @@ interface ProductListingPageProps {
  * Expands products into per-variant sellable listings.
  * Shows a search-results heading when a query is active.
  */
-export default function ProductListingPage({
+export default async function ProductListingPage({
   category = "all",
   query,
 }: ProductListingPageProps) {
@@ -29,10 +29,10 @@ export default function ProductListingPage({
   const trimmedQuery = query?.trim() || undefined;
 
   const listings = trimmedQuery
-    ? searchListings({ category: active.slug, query: trimmedQuery })
+    ? await searchDbListings({ category: active.slug, query: trimmedQuery })
     : isAll
-      ? getAllListings()
-      : getListingsByCategory(active.slug as ProductCategory);
+      ? await getDbAllListings()
+      : await getDbListingsByCategory(active.slug as ProductCategory);
 
   const crumbs: Array<{ label: string; href?: string }> = [
     { label: "Home", href: "/" },

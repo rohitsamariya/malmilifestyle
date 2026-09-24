@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ProductListing } from "@/data/types";
-import { getProducts, getSellableListings } from "@/data/products";
+import { getDbAllListings } from "@/data/db-products";
 import ProductCarousel from "@/components/home/ProductCarousel";
 
 export const FEATURED_SLUGS = [
@@ -25,25 +25,23 @@ const FEATURED_SPECS: Array<{ slug: string; targetSize: string }> = [
   { slug: "ragi-finger-millet-flour", targetSize: "1 kg" },
 ];
 
-const allListings = getSellableListings(getProducts());
+export default async function FeaturedProducts() {
+  const allListings = await getDbAllListings();
 
-const FEATURED: ProductListing[] = FEATURED_SPECS.flatMap(
-  ({ slug, targetSize }) => {
-    // 1. Try exact match by slug and variant size
-    let match = allListings.find(
-      (l) =>
-        l.product.slug === slug &&
-        l.variant.size.toLowerCase() === targetSize.toLowerCase(),
-    );
-    // 2. Fallback to any listing for that product slug
-    if (!match) {
-      match = allListings.find((l) => l.product.slug === slug);
-    }
-    return match ? [match] : [];
-  },
-);
+  const featured: ProductListing[] = FEATURED_SPECS.flatMap(
+    ({ slug, targetSize }) => {
+      let match = allListings.find(
+        (l) =>
+          l.product.slug === slug &&
+          l.variant.size.toLowerCase() === targetSize.toLowerCase(),
+      );
+      if (!match) {
+        match = allListings.find((l) => l.product.slug === slug);
+      }
+      return match ? [match] : [];
+    },
+  );
 
-export default function FeaturedProducts() {
   return (
     <section
       aria-labelledby="featured-heading"
@@ -75,7 +73,7 @@ export default function FeaturedProducts() {
         </div>
 
         <div className="mt-12">
-          <ProductCarousel listings={FEATURED} ariaLabel="Featured products" />
+          <ProductCarousel listings={featured} ariaLabel="Featured products" />
         </div>
       </div>
     </section>

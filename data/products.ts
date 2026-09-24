@@ -452,6 +452,11 @@ export function searchProducts({
 }
 
 // ---------------------------------------------------------------------------
+// Async DB functions moved to data/db-products.ts (server-only)
+// Do NOT add Mongoose/Node-only imports here — this file is used by Client Components.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
 // Sellable listing helpers — expand each product into per-variant listing items
 // ---------------------------------------------------------------------------
 
@@ -486,6 +491,8 @@ export function getAllListings(): ProductListing[] {
 export function getListingsByCategory(category: ProductCategory): ProductListing[] {
   return getSellableListings(getProductsByCategory(category));
 }
+
+// Async DB listing helpers → see data/db-products.ts
 
 /**
  * Search across listings — matches against product name, description,
