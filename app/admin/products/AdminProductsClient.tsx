@@ -240,12 +240,81 @@ function ProductForm({
     setForm((prev) => ({ ...prev, variants: prev.variants.filter((_, i) => i !== idx) }));
   }
 
-  function addImageField() {
-    setForm((prev) => ({ ...prev, images: [...prev.images, ""] }));
+
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  function extractPublicId(url: string): string | null {
+    if (!url.includes("res.cloudinary.com")) return null;
+    try {
+      const parts = url.split("/upload/");
+      if (parts.length !== 2) return null;
+      const pathWithVersion = parts[1];
+      const pathParts = pathWithVersion.split("/");
+      // Remove version (e.g. v123456789)
+      if (pathParts[0].startsWith("v") && !isNaN(Number(pathParts[0].substring(1)))) {
+        pathParts.shift();
+      }
+      const fullPath = pathParts.join("/");
+      // Remove extension
+      return fullPath.substring(0, fullPath.lastIndexOf(".")) || fullPath;
+    } catch {
+      return null;
+    }
   }
 
-  function removeImageField(idx: number) {
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/admin/images", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to upload image.");
+
+      setForm((prev) => ({
+        ...prev,
+        // Add the new image, filtering out empty strings if any
+        images: [...prev.images.filter(Boolean), data.url],
+      }));
+    } catch (err: any) {
+      setError(err.message || "Failed to upload image.");
+    } finally {
+      setUploadingImage(false);
+      // reset file input
+      e.target.value = "";
+    }
+  }
+
+  async function removeImageField(idx: number) {
+    const urlToRemove = form.images[idx];
+    
+    // Optimistically update UI
     setForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
+
+    if (urlToRemove) {
+      const publicId = extractPublicId(urlToRemove);
+      if (publicId) {
+        try {
+           await fetch("/api/admin/images", {
+             method: "DELETE",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({ publicId }),
+           });
+           // We do not await/block on this or show errors if it fails since we already removed it from UI
+        } catch (e) {
+           console.error("Failed to delete image from cloudinary", e);
+        }
+      }
+    }
   }
 
   function handleImageChange(idx: number, value: string) {
@@ -253,6 +322,20 @@ function ProductForm({
       ...prev,
       images: prev.images.map((img, i) => (i === idx ? value : img)),
     }));
+  }
+
+  function moveImage(idx: number, dir: "up" | "down") {
+    if (dir === "up" && idx === 0) return;
+    if (dir === "down" && idx === form.images.length - 1) return;
+    
+    setForm((prev) => {
+      const newImages = [...prev.images];
+      const targetIdx = dir === "up" ? idx - 1 : idx + 1;
+      const temp = newImages[targetIdx];
+      newImages[targetIdx] = newImages[idx];
+      newImages[idx] = temp;
+      return { ...prev, images: newImages };
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -381,35 +464,105 @@ function ProductForm({
       {/* Images */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-[10px] font-bold uppercase text-earth">Product Images (URLs)</label>
-          <button
-            type="button"
-            onClick={addImageField}
-            className="text-[11px] font-bold text-forest hover:underline"
-          >
-            + Add Image URL
-          </button>
+          <label className="text-[10px] font-bold uppercase text-earth">Product Images</label>
         </div>
-        <div className="flex flex-col gap-2">
+        
+        {/* Upload Button */}
+        <div className="mb-4">
+          <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-forest/30 bg-cream/30 px-4 py-3 text-sm font-semibold text-forest hover:bg-cream/50 transition-colors ${uploadingImage ? "opacity-50 pointer-events-none" : ""}`}>
+            <svg className="h-5 w-5 text-forest" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            {uploadingImage ? "Uploading..." : "Upload New Image"}
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleImageUpload} 
+              disabled={uploadingImage}
+            />
+          </label>
+          <p className="mt-2 text-[10px] text-earth-light">Supported formats: JPG, PNG, WEBP. Max size: 5MB.</p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {form.images.map((img, idx) => (
-            <div key={idx} className="flex gap-2">
-              <input
-                type="url"
-                value={img}
-                onChange={(e) => handleImageChange(idx, e.target.value)}
-                placeholder="https://..."
-                className="flex-1 rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-xs text-forest placeholder:text-earth-lighter focus:border-forest focus:bg-white focus:outline-none"
-              />
-              {form.images.length > 1 && (
+            img && (
+            <div key={idx} className="group relative aspect-square overflow-hidden rounded-xl border border-sand bg-cream-deep">
+              {/* Image Preview */}
+              <img src={img} alt={`Product ${idx}`} className="h-full w-full object-cover" />
+              
+              {/* Overlay Actions */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => moveImage(idx, "up")}
+                    disabled={idx === 0}
+                    className="rounded bg-white/20 p-1.5 text-white hover:bg-white/40 disabled:opacity-30 disabled:hover:bg-white/20"
+                    title="Move Left"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveImage(idx, "down")}
+                    disabled={idx === form.images.length - 1}
+                    className="rounded bg-white/20 p-1.5 text-white hover:bg-white/40 disabled:opacity-30 disabled:hover:bg-white/20"
+                    title="Move Right"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeImageField(idx)}
-                  className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
+                  className="rounded-lg bg-red-600/90 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-red-600"
                 >
-                  ✕
+                  Remove
                 </button>
+              </div>
+
+              {/* URL Input (Fallback for manual edit/view) */}
+              <div className="absolute bottom-0 left-0 right-0 bg-black/80 p-1">
+                 <input
+                    type="url"
+                    value={img}
+                    onChange={(e) => handleImageChange(idx, e.target.value)}
+                    placeholder="https://..."
+                    className="w-full bg-transparent text-[10px] text-white outline-none"
+                  />
+              </div>
+
+              {idx === 0 && (
+                <div className="absolute top-2 left-2 rounded bg-forest px-1.5 py-0.5 text-[10px] font-bold text-cream">
+                  MAIN
+                </div>
               )}
             </div>
+            )
+          ))}
+          
+          {/* Also render empty inputs if any were left by the old code */}
+          {form.images.map((img, idx) => (
+             !img && (
+               <div key={idx} className="flex flex-col gap-2 p-2 border border-sand rounded-xl bg-cream/30">
+                  <input
+                    type="url"
+                    value={img}
+                    onChange={(e) => handleImageChange(idx, e.target.value)}
+                    placeholder="Enter image URL manually..."
+                    className="flex-1 rounded-xl border border-sand bg-white px-3.5 py-2 text-xs text-forest placeholder:text-earth-lighter focus:border-forest focus:outline-none"
+                  />
+                   <button
+                      type="button"
+                      onClick={() => removeImageField(idx)}
+                      className="rounded-lg bg-red-50 px-3 py-1 text-xs font-bold text-red-600 hover:bg-red-100 self-end"
+                    >
+                      Remove Input
+                    </button>
+               </div>
+             )
           ))}
         </div>
       </div>
