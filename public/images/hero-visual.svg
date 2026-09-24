@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000" role="img" aria-label="Wood-pressed oil, grains and flour — Malmi Lifestyle">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="85%">
+      <stop offset="0%" stop-color="#fbf7ec"/>
+      <stop offset="55%" stop-color="#f1e8d3"/>
+      <stop offset="100%" stop-color="#e2d4b6"/>
+    </radialGradient>
+    <linearGradient id="oil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c9a53f"/>
+      <stop offset="100%" stop-color="#a5812c"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1000" height="1000" fill="url(#bg)"/>
+  <circle cx="500" cy="470" r="345" fill="none" stroke="#c9b987" stroke-width="2" opacity="0.5"/>
+  <circle cx="500" cy="470" r="275" fill="#c9b987" opacity="0.10"/>
+  <circle cx="500" cy="470" r="205" fill="none" stroke="#b8932f" stroke-width="1.5" opacity="0.45"/>
+
+  <!-- Wheat sprig, upper left -->
+  <path d="M268 720 C 264 570 262 430 272 260" fill="none" stroke="#1f3b2c" stroke-width="5" opacity="0.85"/>
+  <g fill="#1f3b2c" opacity="0.85">
+    <g transform="translate(258 300) rotate(-38)"><ellipse rx="13" ry="26"/></g>
+    <g transform="translate(292 318) rotate(36)"><ellipse rx="13" ry="26"/></g>
+    <g transform="translate(256 372) rotate(-40)"><ellipse rx="13" ry="26"/></g>
+    <g transform="translate(288 388) rotate(38)"><ellipse rx="13" ry="26"/></g>
+    <g transform="translate(254 448) rotate(-40)"><ellipse rx="13" ry="26"/></g>
+    <g transform="translate(284 462) rotate(38)"><ellipse rx="13" ry="26"/></g>
+    <g transform="translate(252 522) rotate(-40)"><ellipse rx="13" ry="26"/></g>
+    <g transform="translate(280 535) rotate(38)"><ellipse rx="13" ry="26"/></g>
+  </g>
+  <path d="M270 640 C 236 648 206 668 182 706 C 220 690 252 668 276 648 Z" fill="#2d4c3a" opacity="0.7"/>
+
+  <!-- Oil bottle -->
+  <rect x="458" y="296" width="84" height="84" rx="14" fill="#efe6d2" stroke="#8a6f3f" stroke-width="4"/>
+  <rect x="414" y="380" width="172" height="330" rx="26" fill="#efe6d2" stroke="#8a6f3f" stroke-width="4"/>
+  <rect x="424" y="470" width="152" height="226" rx="18" fill="url(#oil)" opacity="0.88"/>
+  <ellipse cx="500" cy="470" rx="76" ry="10" fill="#d9bd73"/>
+  <rect x="438" y="488" width="14" height="150" rx="7" fill="#fbf7ec" opacity="0.35"/>
+  <rect x="446" y="498" width="108" height="122" rx="10" fill="#fbf7ec" stroke="#c9b987" stroke-width="2"/>
+  <text x="500" y="542" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="29" font-weight="600" letter-spacing="4" fill="#1f3b2c">MALMI</text>
+  <text x="500" y="574" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="600" letter-spacing="2" fill="#8a6f3f">WOOD-PRESSED</text>
+  <circle cx="478" cy="606" r="3.5" fill="#b8932f"/>
+  <circle cx="500" cy="608" r="3.5" fill="#b8932f"/>
+  <circle cx="522" cy="606" r="3.5" fill="#b8932f"/>
+  <rect x="460" y="250" width="80" height="46" rx="10" fill="#8a6f3f"/>
+  <rect x="460" y="272" width="80" height="10" fill="#6b5431"/>
+
+  <!-- Droplet of oil -->
+  <path d="M500 132 C 484 172 466 188 466 208 a 34 34 0 0 0 68 0 C 534 188 516 172 500 132 Z" fill="#b8932f" opacity="0.9"/>
+
+  <!-- Flour mound, lower left -->
+  <path d="M118 812 C 168 728 268 728 312 812 C 344 862 140 862 118 812 Z" fill="#f3ecdd" stroke="#d8c9ab" stroke-width="3"/>
+  <circle cx="196" cy="800" r="6" fill="#e8dfcb"/>
+  <circle cx="236" cy="816" r="5.5" fill="#e8dfcb"/>
+  <circle cx="268" cy="792" r="5" fill="#e8dfcb"/>
+  <circle cx="166" cy="832" r="5" fill="#e8dfcb"/>
+  <circle cx="224" cy="778" r="8" fill="#c9b987"/>
+  <circle cx="292" cy="830" r="7" fill="#b8932f"/>
+  <circle cx="152" cy="800" r="6.5" fill="#c9b987"/>
+
+  <!-- Bowl of mustard seeds, lower right -->
+  <ellipse cx="762" cy="806" rx="152" ry="56" fill="#9c7f4c"/>
+  <ellipse cx="762" cy="800" rx="126" ry="42" fill="#5c4627"/>
+  <ellipse cx="762" cy="824" rx="152" ry="56" fill="#8a6f3f"/>
+  <g fill="#8a6f3f">
+    <circle cx="700" cy="828" r="10"/><circle cx="730" cy="850" r="10"/><circle cx="758" cy="862" r="10"/>
+    <circle cx="798" cy="856" r="10"/><circle cx="824" cy="834" r="10"/>
+  </g>
+  <g fill="#c2ab6a">
+    <circle cx="700" cy="792" r="11"/><circle cx="726" cy="784" r="11"/><circle cx="752" cy="794" r="11"/>
+    <circle cx="778" cy="782" r="11"/><circle cx="804" cy="792" r="11"/><circle cx="828" cy="786" r="11"/>
+  </g>
+  <g fill="#b8932f">
+    <circle cx="718" cy="770" r="11"/><circle cx="746" cy="762" r="11"/><circle cx="774" cy="768" r="11"/>
+    <circle cx="802" cy="762" r="11"/><circle cx="830" cy="772" r="11"/>
+  </g>
+
+  <!-- Leaf sprig, right of bottle -->
+  <path d="M610 300 C 660 318 700 352 720 402 C 674 386 632 352 608 312 Z" fill="#2d4c3a" opacity="0.75"/>
+  <path d="M600 346 C 646 348 694 372 726 414 C 680 404 636 380 608 352 Z" fill="#1f3b2c" opacity="0.55"/>
+</svg>

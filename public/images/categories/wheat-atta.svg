@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Stone Ground Wheat Atta collection">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbf7ec"/>
+      <stop offset="55%" stop-color="#efe5cf"/>
+      <stop offset="100%" stop-color="#e0d2b3"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <circle cx="600" cy="340" r="240" fill="#c9b987" opacity="0.08"/>
+  <circle cx="600" cy="340" r="290" fill="none" stroke="#c9b987" stroke-width="2" opacity="0.5"/>
+
+  <!-- Wheat stalks -->
+  <g stroke="#1f3b2c" stroke-width="5" opacity="0.85">
+    <path d="M300 700 C 296 540 300 420 314 240" fill="none"/>
+    <path d="M600 700 C 596 520 600 400 614 220" fill="none"/>
+    <path d="M900 700 C 896 540 900 430 910 250" fill="none"/>
+  </g>
+  <g fill="#1f3b2c" opacity="0.85">
+    <g transform="translate(304 292) rotate(-38)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(346 314) rotate(36)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(300 396) rotate(-40)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(336 414) rotate(38)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(604 272) rotate(-38)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(646 294) rotate(36)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(600 376) rotate(-40)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(636 394) rotate(38)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(900 302) rotate(-38)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(942 324) rotate(36)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(896 406) rotate(-40)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(932 424) rotate(38)"><ellipse rx="14" ry="28"/></g>
+  </g>
+  <path d="M306 620 C 262 622 226 640 202 678 C 240 664 276 648 304 630 Z" fill="#2d4c3a" opacity="0.7"/>
+  <path d="M598 600 C 554 602 518 620 494 658 C 532 644 568 628 596 610 Z" fill="#2d4c3a" opacity="0.7"/>
+  <path d="M902 620 C 858 622 822 640 798 678 C 836 664 872 648 900 630 Z" fill="#2d4c3a" opacity="0.7"/>
+
+  <!-- Flour mound, center -->
+  <path d="M470 620 C 520 528 680 528 730 620 C 774 674 420 674 470 620 Z" fill="#f3ecdd" stroke="#d8c9ab" stroke-width="3"/>
+  <ellipse cx="600" cy="592" rx="120" ry="34" fill="#e8dfcb" opacity="0.8"/>
+  <circle cx="540" cy="620" r="7" fill="#d8c9ab"/>
+  <circle cx="588" cy="604" r="8" fill="#d8c9ab"/>
+  <circle cx="640" cy="626" r="6.5" fill="#d8c9ab"/>
+
+  <!-- Wooden rolling pin -->
+  <rect x="470" y="700" width="16" height="92" rx="8" fill="#8a6f3f" transform="rotate(-24 478 746)"/>
+  <rect x="712" y="700" width="16" height="92" rx="8" fill="#8a6f3f" transform="rotate(24 720 746)"/>
+  <rect x="536" y="668" width="130" height="40" rx="18" fill="#6b5431" opacity="0.9"/>
+  <path d="M540 676 L666 680" stroke="#a5812c" stroke-width="4" opacity="0.8"/>
+  <path d="M536 700 L666 704" stroke="#7a5f38" stroke-width="4" opacity="0.8"/>
+
+  <!-- Grain scatter -->
+  <g fill="#c9b987">
+    <circle cx="400" cy="640" r="7"/><circle cx="436" cy="668" r="6"/>
+    <circle cx="768" cy="648" r="7"/><circle cx="804" cy="672" r="6"/>
+  </g>
+  <g fill="#b8932f">
+    <circle cx="820" cy="630" r="6"/><circle cx="390" cy="668" r="6"/>
+  </g>
+</svg>

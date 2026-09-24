@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1080" viewBox="0 0 900 1080" role="img" aria-label="Traditional Malmi still life — grains, flour and a wooden bowl">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="30%" r="90%">
+      <stop offset="0%" stop-color="#fbf7ec"/>
+      <stop offset="58%" stop-color="#f0e7d2"/>
+      <stop offset="100%" stop-color="#dfd2b4"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="900" height="1080" fill="url(#bg)"/>
+  <ellipse cx="450" cy="250" rx="330" ry="220" fill="#c9b987" opacity="0.08"/>
+  <circle cx="450" cy="430" r="300" fill="none" stroke="#c9b987" stroke-width="2" opacity="0.5"/>
+
+  <!-- Linen cloth, lower left -->
+  <path d="M0 760 C 140 730 260 742 360 800 L360 1080 H0 Z" fill="#efe6d2"/>
+  <path d="M40 750 C 120 760 180 800 230 872" fill="none" stroke="#d8c9ab" stroke-width="3" opacity="0.7"/>
+  <path d="M20 840 C 100 826 170 846 220 900" fill="none" stroke="#d8c9ab" stroke-width="3" opacity="0.6"/>
+
+  <!-- Wheat sprigs rising behind bowl -->
+  <path d="M300 860 C 296 640 300 480 316 300" fill="none" stroke="#1f3b2c" stroke-width="5" opacity="0.85"/>
+  <path d="M600 860 C 606 640 602 480 588 300" fill="none" stroke="#1f3b2c" stroke-width="5" opacity="0.85"/>
+  <g fill="#1f3b2c" opacity="0.85">
+    <g transform="translate(306 342) rotate(-36)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(342 362) rotate(34)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(302 420) rotate(-38)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(334 438) rotate(36)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(298 500) rotate(-38)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(328 516) rotate(36)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(598 342) rotate(36)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(562 362) rotate(-34)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(602 420) rotate(38)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(570 438) rotate(-36)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(606 500) rotate(38)"><ellipse rx="13" ry="25"/></g>
+    <g transform="translate(576 516) rotate(-36)"><ellipse rx="13" ry="25"/></g>
+  </g>
+  <path d="M300 660 C 260 660 226 678 204 712 C 234 700 264 690 294 684 Z" fill="#2d4c3a" opacity="0.7"/>
+  <path d="M600 660 C 640 660 674 678 696 712 C 666 700 636 690 606 684 Z" fill="#2d4c3a" opacity="0.7"/>
+
+  <!-- Wooden bowl of grains -->
+  <ellipse cx="450" cy="806" rx="226" ry="84" fill="#9c7f4c"/>
+  <ellipse cx="450" cy="798" rx="188" ry="62" fill="#5c4627"/>
+  <ellipse cx="450" cy="838" rx="226" ry="84" fill="#8a6f3f"/>
+  <ellipse cx="450" cy="898" rx="228" ry="66" fill="#7a5f38"/>
+  <g>
+    <circle cx="380" cy="792" r="15" fill="#c2ab6a"/>
+    <circle cx="414" cy="778" r="15" fill="#b8932f"/>
+    <circle cx="450" cy="788" r="15" fill="#c2ab6a"/>
+    <circle cx="486" cy="776" r="15" fill="#b8932f"/>
+    <circle cx="520" cy="790" r="15" fill="#c2ab6a"/>
+    <circle cx="398" cy="758" r="13" fill="#b8932f"/>
+    <circle cx="436" cy="752" r="13" fill="#c2ab6a"/>
+    <circle cx="472" cy="754" r="13" fill="#b8932f"/>
+    <circle cx="506" cy="760" r="13" fill="#c2ab6a"/>
+    <circle cx="422" cy="808" r="13" fill="#b8932f"/>
+    <circle cx="458" cy="812" r="13" fill="#c2ab6a"/>
+    <circle cx="494" cy="806" r="13" fill="#b8932f"/>
+    <circle cx="382" cy="820" r="12" fill="#c2ab6a"/>
+    <circle cx="520" cy="820" r="12" fill="#b8932f"/>
+    <circle cx="448" cy="826" r="12" fill="#b8932f"/>
+  </g>
+
+  <!-- Spilled seeds -->
+  <g fill="#b8932f">
+    <circle cx="248" cy="852" r="8"/><circle cx="288" cy="876" r="7"/>
+  </g>
+  <g fill="#c2ab6a">
+    <circle cx="620" cy="848" r="8"/><circle cx="652" cy="874" r="7"/>
+  </g>
+
+  <!-- Flour mound, lower right of bowl -->
+  <path d="M640 928 C 668 884 726 884 754 928 C 770 954 620 954 640 928 Z" fill="#f3ecdd" stroke="#d8c9ab" stroke-width="3"/>
+  <circle cx="686" cy="920" r="4.5" fill="#e8dfcb"/>
+  <circle cx="706" cy="930" r="4" fill="#e8dfcb"/>
+  <circle cx="724" cy="916" r="4" fill="#e8dfcb"/>
+
+  <!-- Small mortar and pestle, lower left -->
+  <ellipse cx="190" cy="908" rx="92" ry="36" fill="#9c7f4c"/>
+  <ellipse cx="190" cy="900" rx="74" ry="26" fill="#4e3d20"/>
+  <ellipse cx="190" cy="924" rx="92" ry="36" fill="#8a6f3f"/>
+  <rect x="166" y="836" width="16" height="88" rx="8" fill="#6b5431" transform="rotate(-18 174 880)"/>
+</svg>

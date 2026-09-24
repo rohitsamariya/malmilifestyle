@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" role="img" aria-label="Sattu Atta">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="75%">
+      <stop offset="0%" stop-color="#faf5ea"/>
+      <stop offset="62%" stop-color="#f0e7d2"/>
+      <stop offset="100%" stop-color="#e6dac0"/>
+    </radialGradient>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <circle cx="300" cy="290" r="185" fill="none" stroke="#c2ad82" stroke-width="2" opacity="0.55"/>
+  <circle cx="300" cy="290" r="150" fill="#c2ad82" opacity="0.10"/>
+  <g transform="translate(300 300) scale(1.3)"><circle cx="-40" cy="10" r="9" fill="#b59a55" opacity="0.9"/><circle cx="-12" cy="6" r="11" fill="#c2ab6a" opacity="0.9"/><circle cx="16" cy="12" r="11" fill="#b59a55" opacity="0.9"/><circle cx="44" cy="8" r="9" fill="#c2ab6a" opacity="0.9"/><circle cx="-50" cy="-22" r="11" fill="#b59a55" opacity="0.9"/><circle cx="-22" cy="-18" r="11" fill="#c2ab6a" opacity="0.9"/><circle cx="8" cy="-14" r="9" fill="#b59a55" opacity="0.9"/><circle cx="38" cy="-20" r="11" fill="#c2ab6a" opacity="0.9"/><circle cx="-30" cy="-44" r="11" fill="#b59a55" opacity="0.9"/><circle cx="2" cy="-42" r="9" fill="#c2ab6a" opacity="0.9"/><circle cx="30" cy="-46" r="11" fill="#b59a55" opacity="0.9"/></g>
+  <text x="300" y="430" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="600" fill="#35452e">Sattu Atta</text>
+  <text x="300" y="524" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="600" letter-spacing="4" fill="#8a6f3f">STONE-GROUND</text>
+  <text x="300" y="580" text-anchor="middle" font-family="Georgia, serif" font-size="22" font-style="italic" fill="#5d7260">Malmi Lifestyle</text>
+</svg>

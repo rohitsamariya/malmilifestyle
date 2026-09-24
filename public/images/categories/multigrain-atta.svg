@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Stone Ground Multigrain Atta collection">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbf7ec"/>
+      <stop offset="55%" stop-color="#efe5cf"/>
+      <stop offset="100%" stop-color="#e0d2b3"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <circle cx="600" cy="320" r="250" fill="#c9b987" opacity="0.08"/>
+  <circle cx="600" cy="320" r="300" fill="none" stroke="#c9b987" stroke-width="2" opacity="0.5"/>
+
+  <!-- Wheat stalks behind, right -->
+  <path d="M780 700 C 776 540 780 430 794 260" fill="none" stroke="#1f3b2c" stroke-width="5" opacity="0.85"/>
+  <g fill="#1f3b2c" opacity="0.85">
+    <g transform="translate(786 312) rotate(-38)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(828 334) rotate(36)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(782 416) rotate(-40)"><ellipse rx="14" ry="28"/></g>
+    <g transform="translate(818 434) rotate(38)"><ellipse rx="14" ry="28"/></g>
+  </g>
+  <path d="M782 620 C 746 622 714 640 692 678 C 726 664 758 648 784 630 Z" fill="#2d4c3a" opacity="0.7"/>
+
+  <!-- Wide wooden trough of assorted grains -->
+  <ellipse cx="580" cy="560" rx="330" ry="76" fill="#9c7f4c"/>
+  <ellipse cx="580" cy="550" rx="274" ry="56" fill="#5c4627"/>
+  <ellipse cx="580" cy="606" rx="330" ry="76" fill="#8a6f3f"/>
+  <path d="M310 642 A 330 76 0 0 0 850 642" fill="none" stroke="#6b5431" stroke-width="6" opacity="0.6"/>
+
+  <!-- Chickpeas (green) -->
+  <g fill="#9aa86a">
+    <ellipse cx="380" cy="540" rx="18" ry="22" transform="rotate(-18 380 540)"/>
+    <ellipse cx="432" cy="524" rx="18" ry="22" transform="rotate(20 432 524)"/>
+    <ellipse cx="486" cy="542" rx="18" ry="22" transform="rotate(-12 486 542)"/>
+    <ellipse cx="700" cy="540" rx="18" ry="22" transform="rotate(22 700 540)"/>
+    <ellipse cx="750" cy="522" rx="18" ry="22" transform="rotate(-16 750 522)"/>
+    <ellipse cx="664" cy="524" rx="18" ry="22" transform="rotate(10 664 524)"/>
+  </g>
+
+  <!-- Soybeans (gold) -->
+  <g fill="#c2ab6a">
+    <ellipse cx="520" cy="512" rx="15" ry="20" transform="rotate(42 520 512)"/>
+    <ellipse cx="566" cy="530" rx="15" ry="20" transform="rotate(-38 566 530)"/>
+    <ellipse cx="612" cy="508" rx="15" ry="20" transform="rotate(48 612 508)"/>
+    <ellipse cx="648" cy="542" rx="15" ry="20" transform="rotate(-30 648 542)"/>
+    <ellipse cx="540" cy="568" rx="15" ry="20" transform="rotate(32 540 568)"/>
+    <ellipse cx="600" cy="566" rx="15" ry="20" transform="rotate(-46 600 566)"/>
+  </g>
+
+  <!-- Wheat kernels (brown) -->
+  <g fill="#a5812c">
+    <circle cx="420" cy="576" r="12"/><circle cx="462" cy="562" r="12"/><circle cx="506" cy="580" r="12"/>
+    <circle cx="548" cy="596" r="12"/><circle cx="592" cy="590" r="12"/><circle cx="636" cy="578" r="12"/>
+    <circle cx="682" cy="566" r="12"/><circle cx="726" cy="580" r="12"/><circle cx="772" cy="568" r="12"/>
+    <circle cx="444" cy="594" r="10"/><circle cx="488" cy="610" r="10"/><circle cx="700" cy="594" r="10"/>
+  </g>
+
+  <!-- Millet / small round grains -->
+  <g fill="#d9bd73" opacity="0.9">
+    <circle cx="392" cy="606" r="8"/><circle cx="418" cy="620" r="8"/><circle cx="452" cy="612" r="8"/>
+    <circle cx="512" cy="618" r="8"/><circle cx="628" cy="614" r="8"/><circle cx="668" cy="620" r="8"/>
+    <circle cx="716" cy="610" r="8"/><circle cx="748" cy="596" r="8"/><circle cx="778" cy="604" r="8"/>
+  </g>
+
+  <!-- Spilled grains -->
+  <g fill="#c2ab6a">
+    <circle cx="808" cy="640" r="9"/><circle cx="836" cy="668" r="8"/>
+  </g>
+  <g fill="#9aa86a">
+    <ellipse cx="360" cy="646" rx="9" ry="11" transform="rotate(-14 360 646)"/>
+    <ellipse cx="330" cy="668" rx="9" ry="11" transform="rotate(18 330 668)"/>
+  </g>
+
+  <!-- Flour dust line -->
+  <path d="M60 706 Q 400 668 700 706 T 1140 706" fill="none" stroke="#d8c9ab" stroke-width="3" opacity="0.6"/>
+</svg>

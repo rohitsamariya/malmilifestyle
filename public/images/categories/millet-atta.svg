@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Stone Ground Millet Atta collection">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbf7ec"/>
+      <stop offset="55%" stop-color="#efe5cf"/>
+      <stop offset="100%" stop-color="#e0d2b3"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <circle cx="460" cy="330" r="230" fill="#c9b987" opacity="0.08"/>
+  <circle cx="460" cy="330" r="280" fill="none" stroke="#c9b987" stroke-width="2" opacity="0.5"/>
+
+  <!-- Millet ear spikes, upper left -->
+  <g stroke="#1f3b2c" stroke-width="5" opacity="0.85">
+    <path d="M300 700 C 296 540 300 430 312 250" fill="none"/>
+    <path d="M432 700 C 428 560 434 470 448 300" fill="none"/>
+  </g>
+  <g fill="#1f3b2c" opacity="0.9">
+    <circle cx="302" cy="560" r="6"/><circle cx="304" cy="536" r="6"/><circle cx="302" cy="512" r="6"/>
+    <circle cx="304" cy="488" r="6"/><circle cx="302" cy="464" r="6"/><circle cx="304" cy="440" r="6"/>
+    <circle cx="302" cy="416" r="6"/><circle cx="304" cy="392" r="6"/><circle cx="302" cy="368" r="6"/>
+    <circle cx="304" cy="344" r="6"/><circle cx="302" cy="320" r="6"/><circle cx="304" cy="296" r="6"/>
+    <circle cx="435" cy="600" r="6"/><circle cx="436" cy="576" r="6"/><circle cx="435" cy="552" r="6"/>
+    <circle cx="437" cy="528" r="6"/><circle cx="435" cy="504" r="6"/><circle cx="437" cy="480" r="6"/>
+    <circle cx="435" cy="456" r="6"/><circle cx="437" cy="432" r="6"/><circle cx="435" cy="408" r="6"/>
+    <circle cx="437" cy="384" r="6"/><circle cx="435" cy="360" r="6"/><circle cx="437" cy="336" r="6"/>
+  </g>
+  <path d="M300 620 C 262 622 228 640 206 676 C 240 664 272 648 298 630 Z" fill="#2d4c3a" opacity="0.7"/>
+  <path d="M426 620 C 388 622 354 640 332 676 C 366 664 398 648 424 630 Z" fill="#2d4c3a" opacity="0.7"/>
+
+  <!-- Flour mound background -->
+  <path d="M470 618 C 540 520 690 520 760 618 C 804 676 420 676 470 618 Z" fill="#f3ecdd" stroke="#d8c9ab" stroke-width="3"/>
+
+  <!-- Wide bowl of grains, center -->
+  <ellipse cx="640" cy="560" rx="250" ry="66" fill="#9c7f4c"/>
+  <ellipse cx="640" cy="552" rx="208" ry="48" fill="#5c4627"/>
+  <ellipse cx="640" cy="596" rx="250" ry="66" fill="#8a6f3f"/>
+
+  <g fill="#d9bd73" opacity="0.95">
+    <circle cx="480" cy="548" r="12"/><circle cx="508" cy="538" r="12"/><circle cx="536" cy="548" r="12"/>
+    <circle cx="564" cy="536" r="12"/><circle cx="592" cy="546" r="12"/><circle cx="620" cy="534" r="12"/>
+    <circle cx="648" cy="544" r="12"/><circle cx="676" cy="534" r="12"/><circle cx="704" cy="544" r="12"/>
+    <circle cx="732" cy="536" r="12"/><circle cx="760" cy="546" r="12"/><circle cx="788" cy="538" r="12"/>
+    <circle cx="508" cy="570" r="12"/><circle cx="566" cy="572" r="12"/><circle cx="624" cy="566" r="12"/>
+    <circle cx="682" cy="572" r="12"/><circle cx="740" cy="566" r="12"/><circle cx="516" cy="596" r="11"/>
+    <circle cx="636" cy="594" r="11"/><circle cx="754" cy="596" r="11"/>
+  </g>
+  <g fill="#c2ab6a" opacity="0.95">
+    <circle cx="494" cy="512" r="11"/><circle cx="544" cy="508" r="11"/><circle cx="594" cy="512" r="11"/>
+    <circle cx="644" cy="508" r="11"/><circle cx="694" cy="512" r="11"/><circle cx="744" cy="508" r="11"/>
+    <circle cx="786" cy="514" r="11"/><circle cx="472" cy="524" r="10"/><circle cx="814" cy="524" r="10"/>
+    <circle cx="578" cy="588" r="10"/><circle cx="704" cy="586" r="10"/>
+  </g>
+  <g fill="#b8932f">
+    <circle cx="470" cy="560" r="10"/><circle cx="798" cy="560" r="10"/>
+    <circle cx="540" cy="618" r="9"/><circle cx="660" cy="616" r="9"/><circle cx="770" cy="618" r="9"/>
+  </g>
+
+  <!-- Spilled grains -->
+  <g fill="#d9bd73">
+    <circle cx="830" cy="612" r="9"/><circle cx="858" cy="636" r="8"/><circle cx="882" cy="658" r="7"/>
+  </g>
+  <g fill="#c2ab6a">
+    <circle cx="806" cy="620" r="9"/><circle cx="870" cy="648" r="8"/>
+  </g>
+
+  <!-- Soft flour dust -->
+  <path d="M60 704 Q 420 668 720 704 T 1140 704" fill="none" stroke="#d8c9ab" stroke-width="3" opacity="0.6"/>
+</svg>

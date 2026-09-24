@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" role="img" aria-label="Groundnut Oil">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="75%">
+      <stop offset="0%" stop-color="#faf5ea"/>
+      <stop offset="62%" stop-color="#f0e7d2"/>
+      <stop offset="100%" stop-color="#e6dac0"/>
+    </radialGradient>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <circle cx="300" cy="290" r="185" fill="none" stroke="#c9b987" stroke-width="2" opacity="0.55"/>
+  <circle cx="300" cy="290" r="150" fill="#c9b987" opacity="0.10"/>
+  
+  <g transform="translate(300 268) scale(1.15)">
+    <rect x="-46" y="-8" width="92" height="150" rx="10" fill="#1f3b2c" opacity="0.12"/>
+    <rect x="-40" y="-2" width="80" height="120" rx="8" fill="#efe6d2" stroke="#8a6f3f" stroke-width="3"/>
+    <rect x="-40" y="70" width="80" height="40" rx="6" fill="#b8932f" opacity="0.35"/>
+    <rect x="-14" y="-34" width="28" height="32" rx="4" fill="#8a6f3f"/>
+    <rect x="-8" y="-44" width="16" height="14" rx="3" fill="#b8932f"/>
+    <text x="0" y="60" text-anchor="middle" font-family="Georgia, serif" font-size="34" fill="#6b5431" font-style="italic">M</text>
+  </g>
+  <text x="300" y="430" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="600" fill="#35452e">Groundnut Oil</text>
+  <text x="300" y="524" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="600" letter-spacing="4" fill="#8a6f3f">WOOD-PRESSED</text>
+  <text x="300" y="580" text-anchor="middle" font-family="Georgia, serif" font-size="22" font-style="italic" fill="#5d7260">Malmi Lifestyle</text>
+</svg>
