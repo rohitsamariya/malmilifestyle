@@ -162,19 +162,33 @@ export default function Navbar() {
             })}
           </nav>
 
-          {/* Right actions: Search | Profile | Cart */}
+          {/* Right actions: Search | Profile | Cart — all in the exact same row */}
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {/* Search Icon button */}
-            <IconBtn
-              label="Search products"
-              onClick={() => {
-                setSearchOpen((v) => !v);
-                setMenuOpen(false);
-              }}
-              isActive={searchOpen}
-            >
-              <SearchIcon className="h-5 w-5" />
-            </IconBtn>
+            {searchOpen ? (
+              <div className="flex items-center gap-2 transition-all duration-200 w-56 sm:w-72 md:w-80 lg:w-96">
+                <div className="flex-1">
+                  <SearchBar autoFocus onClose={() => setSearchOpen(false)} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(false)}
+                  aria-label="Close search bar"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-earth transition-colors hover:bg-beige hover:text-forest"
+                >
+                  <CloseIcon className="h-5 w-5" />
+                </button>
+              </div>
+            ) : (
+              <IconBtn
+                label="Search products"
+                onClick={() => {
+                  setSearchOpen(true);
+                  setMenuOpen(false);
+                }}
+              >
+                <SearchIcon className="h-5 w-5" />
+              </IconBtn>
+            )}
 
             {/* Profile */}
             <IconBtn label="Profile" href="/profile" isActive={pathname === "/profile"}>
@@ -191,25 +205,6 @@ export default function Navbar() {
             </IconBtn>
           </div>
         </div>
-
-        {/* Expandable search bar overlay */}
-        {searchOpen && (
-          <div className="border-t border-beige bg-white/95 px-4 py-3 shadow-md backdrop-blur-sm">
-            <div className="mx-auto flex max-w-3xl items-center gap-3">
-              <div className="flex-1">
-                <SearchBar autoFocus onClose={() => setSearchOpen(false)} />
-              </div>
-              <button
-                type="button"
-                onClick={() => setSearchOpen(false)}
-                aria-label="Close search bar"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-earth transition-colors hover:bg-beige hover:text-forest"
-              >
-                <CloseIcon className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Mobile category drawer */}
         {menuOpen && (
