@@ -1,4 +1,5 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getProducts } from "@/data/products";
 import ProductDetailClient from "@/components/products/ProductDetailClient";
@@ -31,5 +32,9 @@ export default async function ProductPage({
   const product = getProducts().find((p) => p.slug === slug);
   if (!product) notFound();
 
-  return <ProductDetailClient product={product} />;
+  return (
+    <Suspense fallback={null}>
+      <ProductDetailClient product={product} />
+    </Suspense>
+  );
 }

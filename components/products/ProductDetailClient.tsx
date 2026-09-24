@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Image from "next/image";
@@ -21,7 +21,7 @@ export default function ProductDetailClient({ product }: Props) {
   const category = CATEGORIES.find((c) => c.slug === product.category);
 
   // Default variant: from ?variant= URL param, or first variant
-  const paramVariantId = searchParams.get("variant") ?? "";
+  const paramVariantId = searchParams?.get("variant") ?? "";
   const defaultVariant =
     product.variants.find((v) => v.id === paramVariantId) ??
     product.variants[0];
