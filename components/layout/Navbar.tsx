@@ -81,7 +81,7 @@ export default function Navbar() {
 
   const activeCategory = activeFromPath(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const { cartCount } = useCart();
 
@@ -164,16 +164,14 @@ export default function Navbar() {
 
           {/* Right actions: Search | Profile | Cart */}
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {/* Desktop search pill */}
-            <div className="hidden lg:block lg:w-64 xl:w-72">
-              <SearchBar />
-            </div>
-
-            {/* Mobile search toggle */}
+            {/* Search Icon button */}
             <IconBtn
-              label="Toggle search"
-              onClick={() => { setMobileSearchOpen((v) => !v); setMenuOpen(false); }}
-              href={undefined}
+              label="Search products"
+              onClick={() => {
+                setSearchOpen((v) => !v);
+                setMenuOpen(false);
+              }}
+              isActive={searchOpen}
             >
               <SearchIcon className="h-5 w-5" />
             </IconBtn>
@@ -194,10 +192,22 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile slide-down search */}
-        {mobileSearchOpen && (
-          <div className="border-t border-beige bg-white px-4 py-3 lg:hidden">
-            <SearchBar autoFocus />
+        {/* Expandable search bar overlay */}
+        {searchOpen && (
+          <div className="border-t border-beige bg-white/95 px-4 py-3 shadow-md backdrop-blur-sm">
+            <div className="mx-auto flex max-w-3xl items-center gap-3">
+              <div className="flex-1">
+                <SearchBar autoFocus onClose={() => setSearchOpen(false)} />
+              </div>
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                aria-label="Close search bar"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-earth transition-colors hover:bg-beige hover:text-forest"
+              >
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         )}
 

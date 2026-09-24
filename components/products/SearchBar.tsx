@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
@@ -9,8 +9,9 @@ import { searchProducts } from "@/data/products";
 import { formatPrice } from "@/lib/utils";
 
 interface SearchBarProps {
-  /** When true the input auto-focuses on mount (mobile drawer). */
+  /** When true the input auto-focuses on mount (mobile drawer/toggle). */
   autoFocus?: boolean;
+  onClose?: () => void;
   className?: string;
 }
 
@@ -22,7 +23,7 @@ const MAX_DROPDOWN = 5;
  * Visual rule: the outer <div> is the ONLY visible border.
  * The <input> is completely borderless and outline-free.
  */
-export default function SearchBar({ autoFocus = false, className }: SearchBarProps) {
+export default function SearchBar({ autoFocus = false, onClose, className }: SearchBarProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -51,6 +52,7 @@ export default function SearchBar({ autoFocus = false, className }: SearchBarPro
     if (e.key === "Escape") {
       setOpen(false);
       inputRef.current?.blur();
+      onClose?.();
     }
     if (e.key === "Enter") {
       e.preventDefault();
@@ -62,6 +64,7 @@ export default function SearchBar({ autoFocus = false, className }: SearchBarPro
     const q = query.trim();
     setOpen(false);
     inputRef.current?.blur();
+    onClose?.();
     if (q) {
       router.push(`/products?search=${encodeURIComponent(q)}`);
     } else {
@@ -142,7 +145,7 @@ export default function SearchBar({ autoFocus = false, className }: SearchBarPro
                       href={`/products/${product.slug}`}
                       role="option"
                       aria-selected={false}
-                      onClick={() => { setOpen(false); setQuery(""); }}
+                      onClick={() => { setOpen(false); setQuery(""); onClose?.(); }}
                       className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-cream"
                     >
                       <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-cream-deep">
