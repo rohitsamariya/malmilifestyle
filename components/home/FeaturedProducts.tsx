@@ -1,46 +1,9 @@
 import Link from "next/link";
-import type { ProductListing } from "@/data/types";
-import { getDbAllListings } from "@/data/db-products";
+import { getDbFeaturedListings } from "@/data/db-products";
 import ProductCarousel from "@/components/home/ProductCarousel";
 
-export const FEATURED_SLUGS = [
-  "yellow-mustard-oil",
-  "groundnut-oil",
-  "black-sesame-oil",
-  "khapli-wheat-atta",
-  "sharbati-wheat-atta",
-  "diabetic-care-atta",
-  "multigrain-atta-channa-based",
-  "ragi-finger-millet-flour",
-];
-
-const FEATURED_SPECS: Array<{ slug: string; targetSize: string }> = [
-  { slug: "yellow-mustard-oil", targetSize: "1 L" },
-  { slug: "groundnut-oil", targetSize: "1 L" },
-  { slug: "black-sesame-oil", targetSize: "500 ML" },
-  { slug: "khapli-wheat-atta", targetSize: "1 kg" },
-  { slug: "sharbati-wheat-atta", targetSize: "1 kg" },
-  { slug: "diabetic-care-atta", targetSize: "1 kg" },
-  { slug: "multigrain-atta-channa-based", targetSize: "1 kg" },
-  { slug: "ragi-finger-millet-flour", targetSize: "1 kg" },
-];
-
 export default async function FeaturedProducts() {
-  const allListings = await getDbAllListings();
-
-  const featured: ProductListing[] = FEATURED_SPECS.flatMap(
-    ({ slug, targetSize }) => {
-      let match = allListings.find(
-        (l) =>
-          l.product.slug === slug &&
-          l.variant.size.toLowerCase() === targetSize.toLowerCase(),
-      );
-      if (!match) {
-        match = allListings.find((l) => l.product.slug === slug);
-      }
-      return match ? [match] : [];
-    },
-  );
+  const listings = await getDbFeaturedListings(8);
 
   return (
     <section
@@ -73,7 +36,7 @@ export default async function FeaturedProducts() {
         </div>
 
         <div className="mt-12">
-          <ProductCarousel listings={featured} ariaLabel="Featured products" />
+          <ProductCarousel listings={listings} ariaLabel="Featured products" />
         </div>
       </div>
     </section>

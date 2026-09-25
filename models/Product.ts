@@ -1,28 +1,30 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Document, Schema } from "mongoose";
 
 export interface IProductVariant {
   variantId: string;
-  size: string; // Display size, e.g. "500 ML", "1 L", "1 kg"
-  price: number; // Selling price in INR
-  compareAtPrice: number | null; // MRP / strikethrough price in INR
+  size: string;
+  price: number;
+  compareAtPrice: number | null;
   stock: number;
   isActive: boolean;
+  image: string | null;
+  imagePublicId: string | null;
 }
 
 export interface IProduct extends Document {
-  productId: string; // Unique base product identifier, e.g. "wp-oil-001"
+  productId: string;
   name: string;
   slug: string;
-  category: "wood-pressed-oils" | "wheat-atta" | "multigrain-atta" | "millet-atta";
+  categoryId: string;
+  categorySlug: string;
+  category: string;
   description: string;
-  images: string[];
   variants: IProductVariant[];
   rating: number | null;
   reviewCount: number | null;
   price: number;
   compareAtPrice: number | null;
   badge: string | null;
-  madeWith: "Wood-Pressed" | "Stone-Ground";
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -31,11 +33,13 @@ export interface IProduct extends Document {
 const ProductVariantSchema = new Schema<IProductVariant>(
   {
     variantId: { type: String, required: true },
-    size: { type: String, required: true },
-    price: { type: Number, required: true },
-    compareAtPrice: { type: Number, default: null },
-    stock: { type: Number, default: 100 },
+    size: { type: String, required: true, trim: true },
+    price: { type: Number, required: true, min: 0 },
+    compareAtPrice: { type: Number, default: null, min: 0 },
+    stock: { type: Number, required: true, min: 0, default: 100 },
     isActive: { type: Boolean, default: true },
+    image: { type: String, default: null },
+    imagePublicId: { type: String, default: null },
   },
   { _id: false }
 );
@@ -43,30 +47,21 @@ const ProductVariantSchema = new Schema<IProductVariant>(
 const ProductSchema = new Schema<IProduct>(
   {
     productId: { type: String, required: true, unique: true, index: true },
-    name: { type: String, required: true },
+    name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, index: true },
-    category: {
-      type: String,
-      required: true,
-      enum: ["wood-pressed-oils", "wheat-atta", "multigrain-atta", "millet-atta"],
-      index: true,
-    },
-    description: { type: String, required: true },
-    images: { type: [String], required: true },
-    variants: [ProductVariantSchema],
+    categoryId: { type: String, required: true, index: true },
+    categorySlug: { type: String, required: true, index: true },
+    category: { type: String, required: true, index: true },
+    description: { type: String, required: true, trim: true },
+    variants: { type: [ProductVariantSchema], default: [] },
     rating: { type: Number, default: null },
     reviewCount: { type: Number, default: null },
-    price: { type: Number, required: true },
-    compareAtPrice: { type: Number, default: null },
+    price: { type: Number, required: true, min: 0 },
+    compareAtPrice: { type: Number, default: null, min: 0 },
     badge: { type: String, default: null },
-    madeWith: {
-      type: String,
-      required: true,
-      enum: ["Wood-Pressed", "Stone-Ground"],
-    },
-    isActive: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: true, index: true },
   },
-  { timestamps: true }
+  { timestamps: true, strict: true }
 );
 
 export default mongoose.models.Product ||

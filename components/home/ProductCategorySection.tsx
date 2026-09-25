@@ -1,8 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Category } from "@/data/types";
-import type { Product } from "@/data/types";
-import { getSellableListings } from "@/data/products";
+import type { Product, ProductListing } from "@/data/types";
 import ProductCarousel from "@/components/home/ProductCarousel";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { cn, productsHref } from "@/lib/utils";
@@ -17,6 +16,19 @@ interface ProductCategorySectionProps {
 }
 
 /**
+ * Generates sellable listings from products inline, without importing from static data.
+ */
+function makeSellableListings(products: Product[]): ProductListing[] {
+  return products.flatMap((product) =>
+    product.variants.map((variant) => ({
+      listingKey: `${product.id}__${variant.id}`,
+      product,
+      variant,
+    })),
+  );
+}
+
+/**
  * Dedicated ecommerce category section: heading + supporting copy, a large
  * full-width category visual, and the real catalog product carousel which
  * overlaps the banner for a premium, dense storefront feel.
@@ -27,7 +39,7 @@ export default function ProductCategorySection({
   banner,
   tone = "default",
 }: ProductCategorySectionProps) {
-  const listings = getSellableListings(products);
+  const listings = makeSellableListings(products);
 
   return (
     <section

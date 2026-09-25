@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CATEGORIES } from "@/data/categories";
 import { productsHref } from "@/lib/utils";
+import useCatalogCategories from "@/components/layout/useCatalogCategories";
 import NewsletterForm from "@/components/layout/NewsletterForm";
 
 const COMPANY_LINKS = [
@@ -19,6 +19,7 @@ const SUPPORT_LINKS = [
 
 export default function Footer() {
   const pathname = usePathname();
+  const categories = useCatalogCategories();
 
   // Hide customer Footer on admin routes
   if (pathname.startsWith("/admin")) {
@@ -69,7 +70,7 @@ export default function Footer() {
           >
             All Products
           </Link>
-          {CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <Link
               key={category.slug}
               href={productsHref({ category: category.slug })}

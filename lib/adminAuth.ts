@@ -1,16 +1,13 @@
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
-
-// Default admin credentials (override with environment variables in production)
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@malmilifestyle.com";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
-
-// Secret for signing session token
-const SESSION_SECRET = process.env.SESSION_SECRET || "malmi-lifestyle-admin-secret-key-2026";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const SESSION_SECRET = process.env.SESSION_SECRET;
 export const ADMIN_COOKIE_NAME = "malmi_admin_session";
 
 /** Simple server-side hash function for session signature */
 async function createSignature(data: string): Promise<string> {
+  if (!SESSION_SECRET) {
+    throw new Error("SESSION_SECRET is not configured.");
+  }
   const encoder = new TextEncoder();
   const keyData = encoder.encode(SESSION_SECRET);
   const cryptoKey = await crypto.subtle.importKey(
@@ -40,7 +37,7 @@ export async function createAdminToken(email: string): Promise<string> {
 
 /** Verify a signed session token */
 export async function verifyAdminToken(token: string | undefined): Promise<boolean> {
-  if (!token) return false;
+  if (!token || !ADMIN_EMAIL || !SESSION_SECRET) return false;
   try {
     const parts = token.split(":");
     if (parts.length !== 3) return false;
@@ -62,6 +59,7 @@ export async function verifyAdminToken(token: string | undefined): Promise<boole
 
 /** Server-side authentication check for route handlers / API */
 export async function authenticateAdminRequest(email: string, pass: string): Promise<boolean> {
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) return false;
   const cleanEmail = email.trim().toLowerCase();
   const targetEmail = ADMIN_EMAIL.trim().toLowerCase();
   return cleanEmail === targetEmail && pass === ADMIN_PASSWORD;

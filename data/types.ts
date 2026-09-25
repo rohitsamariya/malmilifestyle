@@ -1,51 +1,48 @@
-﻿export type ProductCategory =
-  | "wood-pressed-oils"
-  | "wheat-atta"
-  | "multigrain-atta"
-  | "millet-atta";
-
+export type ProductCategory = string;
 export type CategorySlug = "all" | ProductCategory;
 
 export interface Category {
+  categoryId?: string;
   slug: CategorySlug;
   name: string;
   shortName: string;
   description: string;
+  image?: string | null;
+  imagePublicId?: string | null;
+  isActive?: boolean;
+  sortOrder?: number;
 }
 
 export interface ProductVariant {
   id: string;
-  /** Display size, e.g. "500 ML", "1 L", "1 kg" */
   size: string;
-  /** Selling price in INR. */
   price: number | null;
-  /** MRP / strikethrough price in INR. */
   compareAtPrice: number | null;
+  image: string | null;
+  imagePublicId: string | null;
+  stock: number;
+  isActive: boolean;
 }
 
 export interface Product {
   id: string;
+  productId?: string;
   name: string;
   slug: string;
   category: ProductCategory;
+  categoryId?: string;
+  categorySlug?: ProductCategory;
   description: string;
-  images: string[];
   variants: ProductVariant[];
   rating: number | null;
   reviewCount: number | null;
   price: number | null;
   compareAtPrice: number | null;
   badge: string | null;
-  madeWith: "Wood-Pressed" | "Stone-Ground";
+  isActive?: boolean;
 }
 
-/**
- * A flat sellable listing entry — one product + one specific variant.
- * Used by ProductCard, ProductGrid, and ProductCarousel in listing contexts.
- * On the PDP, all variants remain accessible for selection.
- */
 export interface ProductListing {
-  /** Stable unique key: productId__variantId */
   listingKey: string;
   product: Product;
   variant: ProductVariant;

@@ -5,20 +5,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Breadcrumb from "@/components/products/Breadcrumb";
-import { getProducts } from "@/data/products";
-import { CATEGORIES } from "@/data/categories";
 import { useCart } from "@/lib/cartContext";
 import { CheckIcon } from "@/components/ui/icons";
 import { cn, discountPercent, formatPrice } from "@/lib/utils";
+import type { Category, Product } from "@/data/types";
 
 interface Props {
-  product: NonNullable<ReturnType<typeof getProducts>[number]>;
+  product: Product;
+  category?: Category | null;
 }
 
-export default function ProductDetailClient({ product }: Props) {
+export default function ProductDetailClient({ product, category = null }: Props) {
   const searchParams = useSearchParams();
   const { addToCart } = useCart();
-  const category = CATEGORIES.find((c) => c.slug === product.category);
 
   // Default variant: from ?variant= URL param, or first variant
   const paramVariantId = searchParams?.get("variant") ?? "";
@@ -38,14 +37,18 @@ export default function ProductDetailClient({ product }: Props) {
 
   const sellingPrice = activeVariant?.price ?? product.price;
   const mrp = activeVariant?.compareAtPrice ?? product.compareAtPrice;
+  const stock = activeVariant?.stock ?? 0;
+  const isOutOfStock = stock <= 0;
   const discount = discountPercent(mrp, sellingPrice);
   const saving =
     mrp !== null && sellingPrice !== null && mrp > sellingPrice
       ? mrp - sellingPrice
       : null;
 
+  const currentImage = activeVariant?.image || "/images/hero-visual.svg";
+
   function handleAddToCart() {
-    if (!activeVariant || sellingPrice === null) return;
+    if (!activeVariant || sellingPrice === null || isOutOfStock || quantity > stock) return;
     for (let i = 0; i < quantity; i++) {
       addToCart({
         productId: product.id,
@@ -53,7 +56,7 @@ export default function ProductDetailClient({ product }: Props) {
         productSlug: product.slug,
         productName: product.name,
         variantSize: activeVariant.size,
-        productImage: product.images[0] ?? "",
+        productImage: currentImage ?? "",
         price: sellingPrice,
         mrp: mrp,
       });
@@ -80,7 +83,7 @@ export default function ProductDetailClient({ product }: Props) {
         {/* Image */}
         <div className="overflow-hidden rounded-2xl border border-beige bg-cream-deep">
           <Image
-            src={product.images[0]}
+            src={currentImage}
             alt={product.name}
             width={600}
             height={600}
@@ -91,9 +94,6 @@ export default function ProductDetailClient({ product }: Props) {
 
         {/* Info panel */}
         <div className="flex flex-col">
-          <p className="inline-flex self-start rounded-full bg-beige px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-forest">
-            {product.madeWith}
-          </p>
           {category && (
             <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-earth">
               {category.name}
@@ -128,11 +128,12 @@ export default function ProductDetailClient({ product }: Props) {
                     key={variant.id}
                     type="button"
                     aria-pressed={isSelected}
-                    onClick={() => {
-                      setSelectedVariantId(variant.id);
-                      setQuantity(1);
-                    }}
-                    className={cn(
+                     onClick={() => {
+                       setSelectedVariantId(variant.id);
+                       setQuantity(1);
+                     }}
+                     disabled={(variant.stock ?? 0) <= 0}
+                     className={cn(
                       "flex flex-col items-center rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all",
                       isSelected
                         ? "border-forest bg-forest text-cream shadow-md"
@@ -182,7 +183,12 @@ export default function ProductDetailClient({ product }: Props) {
 
           {/* Quantity selector */}
           <div className="mt-6">
-            <p className="mb-2 text-sm font-semibold text-forest">Quantity</p>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-forest">Quantity</p>
+              <p className={`text-xs font-semibold ${isOutOfStock ? "text-red-600" : "text-earth"}`}>
+                {isOutOfStock ? "Out of stock" : `${stock} available`}
+              </p>
+            </div>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -201,9 +207,10 @@ export default function ProductDetailClient({ product }: Props) {
               </span>
               <button
                 type="button"
-                onClick={() => setQuantity((q) => q + 1)}
+                onClick={() => setQuantity((q) => Math.min(stock, q + 1))}
+                disabled={quantity >= stock || isOutOfStock}
                 aria-label="Increase quantity"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-beige text-lg font-bold text-forest transition-colors hover:bg-beige"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-beige text-lg font-bold text-forest transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-40"
               >
                 +
               </button>
@@ -220,8 +227,9 @@ export default function ProductDetailClient({ product }: Props) {
             <button
               type="button"
               onClick={handleAddToCart}
+              disabled={isOutOfStock || quantity > stock}
               className={cn(
-                "flex h-13 flex-1 items-center justify-center gap-2.5 rounded-xl text-base font-black tracking-wide transition-all duration-200",
+                "flex h-13 flex-1 items-center justify-center gap-2.5 rounded-xl text-base font-black tracking-wide transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50",
                 justAdded
                   ? "bg-forest/75 text-cream"
                   : "bg-forest text-cream hover:bg-[#1b4d30] hover:shadow-[0_8px_24px_-6px_rgba(21,65,40,0.5)]",

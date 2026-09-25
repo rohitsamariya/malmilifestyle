@@ -1,5 +1,6 @@
 import type { ProductCategory, CategorySlug } from "@/data/types";
-import { getCategory } from "@/data/categories";
+import { notFound } from "next/navigation";
+import { getDbCategory, getDbCategories, ALL_PRODUCTS_CATEGORY } from "@/data/db-categories";
 import {
   getDbAllListings,
   getDbListingsByCategory,
@@ -15,19 +16,16 @@ interface ProductListingPageProps {
   query?: string;
 }
 
-/**
- * Shared server component for all listing pages.
- * Expands products into per-variant sellable listings.
- * Shows a search-results heading when a query is active.
- */
 export default async function ProductListingPage({
   category = "all",
   query,
 }: ProductListingPageProps) {
-  const active = getCategory(category);
+  const categories = await getDbCategories();
+  const active = category === "all" ? ALL_PRODUCTS_CATEGORY : await getDbCategory(category);
+  if (!active) notFound();
+
   const isAll = active.slug === "all";
   const trimmedQuery = query?.trim() || undefined;
-
   const listings = trimmedQuery
     ? await searchDbListings({ category: active.slug, query: trimmedQuery })
     : isAll
@@ -80,7 +78,6 @@ export default async function ProductListingPage({
         )}
       </header>
 
-      {/* Empty search state */}
       {trimmedQuery && listings.length === 0 && (
         <div className="mt-10 flex flex-col items-center gap-4 py-12 text-center">
           <p className="text-base font-medium text-earth-light">
@@ -95,10 +92,9 @@ export default async function ProductListingPage({
         </div>
       )}
 
-      {/* Category tabs — hidden in search mode */}
       {!trimmedQuery && (
         <div className="mt-8 border-b border-beige pb-4">
-          <CategoryTabs activeCategory={active.slug} />
+          <CategoryTabs activeCategory={active.slug} categories={categories} />
         </div>
       )}
 

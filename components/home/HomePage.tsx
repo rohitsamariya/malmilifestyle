@@ -9,35 +9,28 @@ import QualityProcess from "@/components/home/QualityProcess";
 import ExploreMore from "@/components/home/ExploreMore";
 import CustomerStories from "@/components/home/CustomerStories";
 import TrustSection from "@/components/home/TrustSection";
-import { CATEGORY_BANNERS } from "@/components/home/categoryVisuals";
-import { CATEGORIES } from "@/data/categories";
-import { getProductsByCategory } from "@/data/products";
-import type { ProductCategory } from "@/data/types";
+import { getDbCategories } from "@/data/db-categories";
+import { getDbProducts } from "@/data/db-products";
+import { getCategoryBanner } from "@/components/home/categoryVisuals";
 
-const SECTION_ORDER: ProductCategory[] = [
-  "wood-pressed-oils",
-  "wheat-atta",
-  "multigrain-atta",
-  "millet-atta",
-];
+export const dynamic = "force-dynamic";
 
-/**
- * Long-form premium Malmi homepage — a separate experience from the dedicated
- * `/products` catalog, with which it shares every product card. Pure server
- * component; all catalog browsing happens on `/products`.
- */
-export default function HomePage() {
-  const categorySections = SECTION_ORDER.map((slug) => ({
-    category: CATEGORIES.find((c) => c.slug === slug)!,
-    products: getProductsByCategory(slug),
-    banner: CATEGORY_BANNERS[slug],
+export default async function HomePage() {
+  const [allProducts, categories] = await Promise.all([
+    getDbProducts(),
+    getDbCategories(),
+  ]);
+  const categorySections = categories.map((category) => ({
+    category,
+    products: allProducts.filter((product) => product.category === category.slug),
+    banner: getCategoryBanner(category),
   }));
 
   return (
     <>
       <Hero />
       <Benefits />
-      <CategorySection />
+      <CategorySection categories={categories} products={allProducts} />
       <FeaturedProducts />
       <WhyMalmi />
       <BrandStory />

@@ -1,10 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ProductListing } from "@/data/types";
-import { getCategory } from "@/data/categories";
 import { CheckIcon } from "@/components/ui/icons";
 import { useCart } from "@/lib/cartContext";
 import { cn, discountPercent, formatPrice } from "@/lib/utils";
@@ -25,7 +24,9 @@ export default function ProductCard({ listing, className }: ProductCardProps) {
   const { addToCart } = useCart();
   const [justAdded, setJustAdded] = useState(false);
 
-  const category = getCategory(product.category);
+  const categoryLabel = product.category.replace(/-/g, " ");
+  const stock = variant.stock ?? 0;
+  const isOutOfStock = stock <= 0;
 
   const sellingPrice = variant.price ?? product.price;
   const mrp = variant.compareAtPrice ?? product.compareAtPrice;
@@ -38,16 +39,18 @@ export default function ProductCard({ listing, className }: ProductCardProps) {
   // PDP link pre-selects this variant via ?variant=<variantId>
   const pdpHref = `/products/${product.slug}?variant=${encodeURIComponent(variant.id)}`;
 
+  const currentImage = variant.image || "/images/hero-visual.svg";
+
   function handleAdd(e: React.MouseEvent) {
     e.preventDefault();
-    if (sellingPrice === null) return;
+    if (sellingPrice === null || isOutOfStock) return;
     addToCart({
       productId: product.id,
       variantId: variant.id,
       productSlug: product.slug,
       productName: product.name,
       variantSize: variant.size,
-      productImage: product.images[0] ?? "",
+      productImage: currentImage ?? "",
       price: sellingPrice,
       mrp: mrp,
     });
@@ -66,7 +69,7 @@ export default function ProductCard({ listing, className }: ProductCardProps) {
       <div className="relative aspect-[4/3] overflow-hidden bg-cream-deep">
         <Link href={pdpHref} className="block h-full w-full" aria-label={`${product.name} — ${variant.size}`}>
           <Image
-            src={product.images[0]}
+            src={currentImage}
             alt={`${product.name} ${variant.size}`}
             width={600}
             height={600}
@@ -84,17 +87,13 @@ export default function ProductCard({ listing, className }: ProductCardProps) {
           </span>
         ) : null}
 
-        {/* Made-with tag — bottom-left */}
-        <span className="absolute bottom-2.5 left-2.5 rounded-full bg-cream/90 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-forest backdrop-blur-sm">
-          {product.madeWith}
-        </span>
       </div>
 
       {/* Card body */}
       <div className="flex flex-1 flex-col p-4">
         {/* Category label */}
         <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-earth">
-          {category.name}
+          {categoryLabel}
         </p>
 
         {/* Product name */}
@@ -134,19 +133,24 @@ export default function ProductCard({ listing, className }: ProductCardProps) {
           <button
             type="button"
             onClick={handleAdd}
+            disabled={isOutOfStock}
             aria-label={
-              justAdded
-                ? `${product.name} ${variant.size} added to cart`
-                : `Add ${product.name} ${variant.size} to cart`
+              isOutOfStock
+                ? `${product.name} ${variant.size} is out of stock`
+                : justAdded
+                  ? `${product.name} ${variant.size} added to cart`
+                  : `Add ${product.name} ${variant.size} to cart`
             }
             className={cn(
-              "flex h-11 w-full items-center justify-center gap-2 rounded-xl text-[13px] font-black tracking-wider transition-all duration-200",
+              "flex h-11 w-full items-center justify-center gap-2 rounded-xl text-[13px] font-black tracking-wider transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50",
               justAdded
                 ? "bg-forest/80 text-cream"
                 : "bg-forest text-cream hover:bg-[#1b4d30] hover:shadow-[0_6px_18px_-4px_rgba(21,65,40,0.55)]",
             )}
           >
-            {justAdded ? (
+            {isOutOfStock ? (
+              "OUT OF STOCK"
+            ) : justAdded ? (
               <>
                 <CheckIcon className="h-4 w-4" />
                 Added!
@@ -165,7 +169,7 @@ export default function ProductCard({ listing, className }: ProductCardProps) {
                 >
                   <circle cx="9" cy="21" r="1" />
                   <circle cx="20" cy="21" r="1" />
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                  <path d="M1 1h4l2.68 13.39a7 7 0 0 0 2 1.61h9.72a7 7 0 0 0 2-1.61L23 6H6" />
                 </svg>
                 ADD
               </>

@@ -1,16 +1,10 @@
 import Link from "next/link";
-import { getProducts, getSellableListings } from "@/data/products";
+import { getDbAllListings } from "@/data/db-products";
 import ProductCarousel from "@/components/home/ProductCarousel";
-import { FEATURED_SLUGS } from "@/components/home/FeaturedProducts";
 
-const allListings = getSellableListings(getProducts());
+export default async function ExploreMore() {
+  const listings = (await getDbAllListings()).slice(8);
 
-const MORE_LISTINGS = allListings.filter(
-  (l) => !FEATURED_SLUGS.includes(l.product.slug),
-);
-
-/** "Explore more" discovery carousel using the remaining real catalog products. */
-export default function ExploreMore() {
   return (
     <section
       aria-labelledby="explore-heading"
@@ -39,7 +33,7 @@ export default function ExploreMore() {
         </div>
 
         <div className="mt-12">
-          <ProductCarousel listings={MORE_LISTINGS} ariaLabel="More Malmi products" />
+          <ProductCarousel listings={listings} ariaLabel="More Malmi products" />
         </div>
       </div>
     </section>

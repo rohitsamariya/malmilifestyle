@@ -1,12 +1,15 @@
 import Link from "next/link";
-import { getProducts } from "@/data/products";
-import { CATEGORIES } from "@/data/categories";
+import { getDbProducts } from "@/data/db-products";
+import { getDbCategories } from "@/data/db-categories";
 import { formatPrice } from "@/lib/utils";
 
-export default function AdminDashboardPage() {
-  const products = getProducts();
+export const dynamic = "force-dynamic";
+
+export default async function AdminDashboardPage() {
+  const products = await getDbProducts();
+  const categories = await getDbCategories();
   const totalProducts = products.length;
-  const totalCategories = CATEGORIES.length;
+  const totalCategories = categories.length;
 
   return (
     <div className="space-y-8">

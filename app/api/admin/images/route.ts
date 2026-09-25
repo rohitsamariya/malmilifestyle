@@ -1,65 +1,75 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminApiAuth";
 import cloudinary from "@/lib/cloudinary";
+import {
+  deleteManagedProductAsset,
+  isManagedProductAsset,
+} from "@/lib/cloudinary-assets";
 
-// Helper to convert Web Stream to Buffer
+interface CloudinaryUploadResult {
+  secure_url: string;
+  public_id: string;
+  format: string;
+  width: number;
+  height: number;
+}
+
+function pathPart(value: FormDataEntryValue | null, fallback: string): string {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text.replace(/[^a-zA-Z0-9_-]/g, "-") || fallback;
+}
+
 async function getFileBuffer(file: File): Promise<Buffer> {
-  const arrayBuffer = await file.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  return Buffer.from(await file.arrayBuffer());
 }
 
 export async function POST(request: Request) {
   try {
-    // 1. Verify Admin Session
     const authResponse = await requireAdminSession();
     if (authResponse) return authResponse;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
-
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
-
-    // Validate type (basic)
     if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Invalid file type. Only images are allowed." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid file type. Only images are allowed." },
+        { status: 400 },
+      );
     }
-
-    // Validate size (e.g. 5MB limit)
-    const MAX_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
       return NextResponse.json({ error: "File size exceeds 5MB limit." }, { status: 400 });
     }
 
+    const productSlug = pathPart(formData.get("productSlug"), "product");
+    const variantId = pathPart(formData.get("variantId"), "variant");
     const buffer = await getFileBuffer(file);
-
-    // Upload to Cloudinary using a Promise wrapper
-    const uploadResult = await new Promise((resolve, reject) => {
+    const uploadResult = await new Promise<CloudinaryUploadResult>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: "malmi-lifestyle/products",
-          // You could add transformations here if needed
-        },
+        { folder: `malmi/products/${productSlug}/${variantId}` },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
+          if (error || !result) {
+            reject(error || new Error("Cloudinary returned no upload result."));
+            return;
+          }
+          resolve(result as CloudinaryUploadResult);
+        },
       );
       uploadStream.end(buffer);
     });
 
-    const result = uploadResult as any;
-
     return NextResponse.json(
       {
-        url: result.secure_url,
-        publicId: result.public_id,
-        format: result.format,
-        width: result.width,
-        height: result.height,
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        format: uploadResult.format,
+        width: uploadResult.width,
+        height: uploadResult.height,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Cloudinary upload error:", error);
@@ -69,31 +79,19 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    // 1. Verify Admin Session
     const authResponse = await requireAdminSession();
     if (authResponse) return authResponse;
 
     const { publicId } = await request.json();
-
-    if (!publicId) {
+    if (typeof publicId !== "string" || !publicId) {
       return NextResponse.json({ error: "No publicId provided" }, { status: 400 });
     }
-
-    // Do not delete existing static image URLs (they won't have a typical Cloudinary public ID in our format or we don't want to touch them if they are local)
-    // Cloudinary public IDs from our uploads will likely start with "malmi-lifestyle/products/"
-    if (!publicId.startsWith("malmi-lifestyle/")) {
-        // Just return success if it's not a Cloudinary image we manage, so the frontend can still remove it from the DB
-        return NextResponse.json({ success: true, message: "Skipped deletion of non-cloudinary asset." }, { status: 200 });
+    if (!isManagedProductAsset(publicId)) {
+      return NextResponse.json({ success: true, skipped: true });
     }
 
-    const result = await cloudinary.uploader.destroy(publicId);
-
-    if (result.result !== 'ok' && result.result !== 'not found') {
-        console.error("Cloudinary deletion unexpected result:", result);
-         // We might still want to return 200 so the frontend can remove it from DB, but let's log it.
-    }
-
-    return NextResponse.json({ success: true }, { status: 200 });
+    await deleteManagedProductAsset(publicId);
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Cloudinary deletion error:", error);
     return NextResponse.json({ error: "Failed to delete image" }, { status: 500 });

@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 interface AdminVariant {
   variantId: string;
   size: string;
@@ -15,6 +12,9 @@ interface AdminVariant {
   compareAtPrice: number | string | null;
   stock: number | string;
   isActive: boolean;
+  image: string | null;
+  imagePublicId: string | null;
+  id?: string;
 }
 
 interface AdminProduct {
@@ -23,48 +23,57 @@ interface AdminProduct {
   slug: string;
   category: string;
   description: string;
-  images: string[];
   badge: string | null;
-  madeWith: string;
   isActive: boolean;
   variants: AdminVariant[];
-  price: number;
+  price: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
 
-const CATEGORIES = [
-  { value: "wood-pressed-oils", label: "Wood-Pressed Oils" },
-  { value: "wheat-atta", label: "Wheat Atta" },
-  { value: "multigrain-atta", label: "Multigrain Atta" },
-  { value: "millet-atta", label: "Millet Atta" },
-];
+interface AdminCategory {
+  categoryId: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+}
 
-const MADE_WITH_OPTIONS = ["Wood-Pressed", "Stone-Ground"];
+type ProductFormState = Omit<
+  AdminProduct,
+  "productId" | "price" | "createdAt" | "updatedAt"
+>;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function newVariantId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `variant-${crypto.randomUUID()}`;
+  }
+  return `variant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function emptyVariant(): AdminVariant {
   return {
-    variantId: "",
+    variantId: newVariantId(),
     size: "",
     price: "",
     compareAtPrice: "",
-    stock: "",
+    stock: 0,
     isActive: true,
+    image: null,
+    imagePublicId: null,
   };
 }
 
-function emptyProduct(): Omit<AdminProduct, "productId" | "price" | "createdAt" | "updatedAt"> {
+function emptyProduct(category = ""): ProductFormState {
   return {
     name: "",
     slug: "",
-    category: "wood-pressed-oils",
+    category,
     description: "",
-    images: [""],
     badge: "",
-    madeWith: "Wood-Pressed",
     isActive: true,
     variants: [emptyVariant()],
   };
@@ -80,283 +89,297 @@ function autoSlug(name: string): string {
 }
 
 function totalStock(variants: AdminVariant[]): number {
-  return variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+  return variants.reduce((sum, variant) => sum + (Number(variant.stock) || 0), 0);
 }
 
-// ---------------------------------------------------------------------------
-// Variant Row inside modal
-// ---------------------------------------------------------------------------
-function VariantRow({
-  variant,
-  index,
-  onChange,
+function VariantImageField({
+  image,
+  uploading,
+  onUpload,
   onRemove,
-  canRemove,
 }: {
-  variant: AdminVariant;
-  index: number;
-  onChange: (idx: number, field: keyof AdminVariant, value: string | boolean) => void;
-  onRemove: (idx: number) => void;
-  canRemove: boolean;
+  image: string | null;
+  uploading: boolean;
+  onUpload: (file: File) => void;
+  onRemove: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-beige bg-cream/40 p-4 relative">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-earth">
-          Variant {index + 1}
-        </span>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={variant.isActive}
-              onChange={(e) => onChange(index, "isActive", e.target.checked)}
-              className="accent-forest"
-            />
-            <span className="text-[11px] text-earth font-medium">Active</span>
-          </label>
-          {canRemove && (
-            <button
-              type="button"
-              onClick={() => onRemove(index)}
-              className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-100 transition-colors"
-            >
-              Remove
-            </button>
-          )}
-        </div>
+    <div className="mt-1 flex items-center gap-3 sm:col-span-4">
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sand bg-cream-deep">
+        {image ? (
+          <Image
+            src={image}
+            alt="Variant preview"
+            width={64}
+            height={64}
+            unoptimized
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="text-[10px] text-earth-light">No image</span>
+        )}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="sm:col-span-1">
-          <label className="block text-[10px] font-bold uppercase text-earth mb-1">Size *</label>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center rounded-lg border border-forest/20 bg-white px-3 py-2 text-[11px] font-bold text-forest hover:bg-cream">
+          {uploading ? "Uploading…" : image ? "Replace" : "Upload"}
           <input
-            type="text"
-            placeholder="e.g. 500 ML"
-            value={variant.size}
-            onChange={(e) => onChange(index, "size", e.target.value)}
-            className="w-full rounded-lg border border-sand bg-white px-3 py-2 text-xs text-forest placeholder:text-earth-lighter focus:border-forest focus:outline-none"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={uploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) onUpload(file);
+            }}
           />
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-earth mb-1">Selling Price ₹ *</label>
-          <input
-            type="number"
-            placeholder="e.g. 269"
-            min={0}
-            value={variant.price}
-            onChange={(e) => onChange(index, "price", e.target.value)}
-            className="w-full rounded-lg border border-sand bg-white px-3 py-2 text-xs text-forest placeholder:text-earth-lighter focus:border-forest focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-earth mb-1">MRP ₹ (Compare At)</label>
-          <input
-            type="number"
-            placeholder="e.g. 329"
-            min={0}
-            value={variant.compareAtPrice ?? ""}
-            onChange={(e) => onChange(index, "compareAtPrice", e.target.value)}
-            className="w-full rounded-lg border border-sand bg-white px-3 py-2 text-xs text-forest placeholder:text-earth-lighter focus:border-forest focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-earth mb-1">Stock *</label>
-          <input
-            type="number"
-            placeholder="e.g. 100"
-            min={0}
-            value={variant.stock}
-            onChange={(e) => onChange(index, "stock", e.target.value)}
-            className="w-full rounded-lg border border-sand bg-white px-3 py-2 text-xs text-forest placeholder:text-earth-lighter focus:border-forest focus:outline-none"
-          />
-        </div>
+        </label>
+        {image ? (
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={uploading}
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-600 hover:bg-red-100"
+          >
+            Remove
+          </button>
+        ) : null}
+        <span className="text-[10px] text-earth-light">JPG, PNG or WEBP up to 5 MB</span>
       </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Product Form (shared by Add + Edit modals)
-// ---------------------------------------------------------------------------
+function VariantRow({
+  variant,
+  index,
+  productSlug,
+  uploading,
+  onChange,
+  onImageUpload,
+  onImageRemove,
+  onRemove,
+  canRemove,
+}: {
+  variant: AdminVariant;
+  index: number;
+  productSlug: string;
+  uploading: boolean;
+  onChange: (index: number, field: keyof AdminVariant, value: string | boolean | null) => void;
+  onImageUpload: (index: number, file: File) => Promise<void>;
+  onImageRemove: (index: number) => void;
+  onRemove: (index: number) => void;
+  canRemove: boolean;
+}) {
+  return (
+    <div className="relative rounded-xl border border-beige bg-cream/40 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-earth">
+          Variant {index + 1}
+        </span>
+        <div className="flex items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={variant.isActive}
+              onChange={(event) => onChange(index, "isActive", event.target.checked)}
+              className="accent-forest"
+            />
+            <span className="text-[11px] font-medium text-earth">Active</span>
+          </label>
+          {canRemove ? (
+            <button
+              type="button"
+              onClick={() => onRemove(index)}
+              className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-100"
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div>
+          <label className="mb-1 block text-[10px] font-bold uppercase text-earth">Size *</label>
+          <input
+            type="text"
+            placeholder="e.g. 500 ML"
+            value={variant.size}
+            onChange={(event) => onChange(index, "size", event.target.value)}
+            className="w-full rounded-lg border border-sand bg-white px-3 py-2 text-xs text-forest placeholder:text-earth-lighter focus:border-forest focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] font-bold uppercase text-earth">Selling Price *</label>
+          <input
+            type="number"
+            min={0}
+            value={variant.price}
+            onChange={(event) => onChange(index, "price", event.target.value)}
+            className="w-full rounded-lg border border-sand bg-white px-3 py-2 text-xs text-forest focus:border-forest focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] font-bold uppercase text-earth">MRP</label>
+          <input
+            type="number"
+            min={0}
+            value={variant.compareAtPrice ?? ""}
+            onChange={(event) => onChange(index, "compareAtPrice", event.target.value)}
+            className="w-full rounded-lg border border-sand bg-white px-3 py-2 text-xs text-forest focus:border-forest focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] font-bold uppercase text-earth">Stock *</label>
+          <input
+            type="number"
+            min={0}
+            value={variant.stock}
+            onChange={(event) => onChange(index, "stock", event.target.value)}
+            className="w-full rounded-lg border border-sand bg-white px-3 py-2 text-xs text-forest focus:border-forest focus:outline-none"
+          />
+        </div>
+      </div>
+      <VariantImageField
+        image={variant.image ?? null}
+        uploading={uploading}
+        onUpload={(file) => void onImageUpload(index, file)}
+        onRemove={() => onImageRemove(index)}
+      />
+      <input
+        type="hidden"
+        value={productSlug}
+        readOnly
+      />
+    </div>
+  );
+}
+
 function ProductForm({
   initial,
+  categories,
   onSave,
   onCancel,
   mode,
 }: {
   initial: Partial<AdminProduct>;
-  onSave: (data: any) => Promise<void>;
+  categories: AdminCategory[];
+  onSave: (data: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
   mode: "add" | "edit";
 }) {
-  const [form, setForm] = useState<ReturnType<typeof emptyProduct>>(() => ({
+  const [form, setForm] = useState<ProductFormState>(() => ({
     name: initial.name ?? "",
     slug: initial.slug ?? "",
-    category: initial.category ?? "wood-pressed-oils",
+    category: initial.category ?? categories[0]?.slug ?? "",
     description: initial.description ?? "",
-    images: initial.images?.length ? initial.images : [""],
     badge: initial.badge ?? "",
-    madeWith: initial.madeWith ?? "Wood-Pressed",
     isActive: initial.isActive !== false,
     variants: initial.variants?.length
-      ? initial.variants.map((v) => ({
-          variantId: v.variantId ?? "",
-          size: v.size ?? "",
-          price: v.price ?? "",
-          compareAtPrice: v.compareAtPrice ?? "",
-          stock: v.stock ?? "",
-          isActive: v.isActive !== false,
+      ? initial.variants.map((variant) => ({
+          variantId: variant.variantId ?? variant.id ?? "",
+          size: variant.size ?? "",
+          price: variant.price ?? "",
+          compareAtPrice: variant.compareAtPrice ?? "",
+          stock: variant.stock ?? 0,
+          isActive: variant.isActive !== false,
+          image: variant.image ?? null,
+          imagePublicId: variant.imagePublicId ?? null,
         }))
       : [emptyVariant()],
   }));
-
   const [slugManual, setSlugManual] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingVariant, setUploadingVariant] = useState<number | null>(null);
 
-  // Auto-generate slug from name (only in Add mode and if not manually edited)
-  useEffect(() => {
-    if (mode === "add" && !slugManual) {
-      setForm((prev) => ({ ...prev, slug: autoSlug(prev.name) }));
-    }
-  }, [form.name, mode, slugManual]);
-
-  function handleField(field: string, value: string | boolean) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  function handleNameChange(value: string) {
+    setForm((previous) => ({
+      ...previous,
+      name: value,
+      ...(mode === "add" && !slugManual ? { slug: autoSlug(value) } : {}),
+    }));
   }
 
-  function handleVariantChange(idx: number, field: keyof AdminVariant, value: string | boolean) {
-    setForm((prev) => ({
-      ...prev,
-      variants: prev.variants.map((v, i) => (i === idx ? { ...v, [field]: value } : v)),
+  function handleField(field: keyof ProductFormState, value: string | boolean) {
+    setForm((previous) => ({ ...previous, [field]: value }));
+  }
+
+  function handleVariantChange(index: number, field: keyof AdminVariant, value: string | boolean | null) {
+    setForm((previous) => ({
+      ...previous,
+      variants: previous.variants.map((variant, itemIndex) =>
+        itemIndex === index ? { ...variant, [field]: value } : variant,
+      ),
     }));
   }
 
   function addVariant() {
-    setForm((prev) => ({ ...prev, variants: [...prev.variants, emptyVariant()] }));
+    setForm((previous) => ({ ...previous, variants: [...previous.variants, emptyVariant()] }));
   }
 
-  function removeVariant(idx: number) {
-    setForm((prev) => ({ ...prev, variants: prev.variants.filter((_, i) => i !== idx) }));
-  }
-
-
-  const [uploadingImage, setUploadingImage] = useState(false);
-
-  function extractPublicId(url: string): string | null {
-    if (!url.includes("res.cloudinary.com")) return null;
-    try {
-      const parts = url.split("/upload/");
-      if (parts.length !== 2) return null;
-      const pathWithVersion = parts[1];
-      const pathParts = pathWithVersion.split("/");
-      // Remove version (e.g. v123456789)
-      if (pathParts[0].startsWith("v") && !isNaN(Number(pathParts[0].substring(1)))) {
-        pathParts.shift();
-      }
-      const fullPath = pathParts.join("/");
-      // Remove extension
-      return fullPath.substring(0, fullPath.lastIndexOf(".")) || fullPath;
-    } catch {
-      return null;
-    }
-  }
-
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingImage(true);
-    setError(null);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/admin/images", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to upload image.");
-
-      setForm((prev) => ({
-        ...prev,
-        // Add the new image, filtering out empty strings if any
-        images: [...prev.images.filter(Boolean), data.url],
-      }));
-    } catch (err: any) {
-      setError(err.message || "Failed to upload image.");
-    } finally {
-      setUploadingImage(false);
-      // reset file input
-      e.target.value = "";
-    }
-  }
-
-  async function removeImageField(idx: number) {
-    const urlToRemove = form.images[idx];
-    
-    // Optimistically update UI
-    setForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
-
-    if (urlToRemove) {
-      const publicId = extractPublicId(urlToRemove);
-      if (publicId) {
-        try {
-           await fetch("/api/admin/images", {
-             method: "DELETE",
-             headers: { "Content-Type": "application/json" },
-             body: JSON.stringify({ publicId }),
-           });
-           // We do not await/block on this or show errors if it fails since we already removed it from UI
-        } catch (e) {
-           console.error("Failed to delete image from cloudinary", e);
-        }
-      }
-    }
-  }
-
-  function handleImageChange(idx: number, value: string) {
-    setForm((prev) => ({
-      ...prev,
-      images: prev.images.map((img, i) => (i === idx ? value : img)),
+  function removeVariant(index: number) {
+    setForm((previous) => ({
+      ...previous,
+      variants: previous.variants.filter((_, itemIndex) => itemIndex !== index),
     }));
   }
 
-  function moveImage(idx: number, dir: "up" | "down") {
-    if (dir === "up" && idx === 0) return;
-    if (dir === "down" && idx === form.images.length - 1) return;
-    
-    setForm((prev) => {
-      const newImages = [...prev.images];
-      const targetIdx = dir === "up" ? idx - 1 : idx + 1;
-      const temp = newImages[targetIdx];
-      newImages[targetIdx] = newImages[idx];
-      newImages[idx] = temp;
-      return { ...prev, images: newImages };
-    });
+  async function handleVariantImageUpload(index: number, file: File) {
+    const variant = form.variants[index];
+    if (!variant) return;
+    setUploadingVariant(index);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("productSlug", form.slug || "product");
+      body.append("variantId", variant.variantId || `variant-${index + 1}`);
+      const response = await fetch("/api/admin/images", { method: "POST", body });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to upload image.");
+      handleVariantChange(index, "image", data.url);
+      handleVariantChange(index, "imagePublicId", data.publicId || null);
+    } catch (uploadError) {
+      setError(errorMessage(uploadError, "Failed to upload image."));
+    } finally {
+      setUploadingVariant(null);
+    }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleVariantImageRemove(index: number) {
+    handleVariantChange(index, "image", null);
+    handleVariantChange(index, "imagePublicId", null);
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setError(null);
     setSaving(true);
     try {
-      const payload = {
-        ...form,
-        images: form.images.filter(Boolean),
+      await onSave({
+        name: form.name,
+        slug: form.slug,
+        category: form.category,
+        description: form.description,
         badge: form.badge || null,
-        variants: form.variants.map((v) => ({
-          ...v,
-          price: Number(v.price),
-          compareAtPrice: v.compareAtPrice !== "" && v.compareAtPrice !== null ? Number(v.compareAtPrice) : null,
-          stock: Number(v.stock),
+        isActive: form.isActive,
+        variants: form.variants.map((variant) => ({
+          variantId: variant.variantId,
+          size: variant.size,
+          price: Number(variant.price),
+          compareAtPrice:
+            variant.compareAtPrice !== "" && variant.compareAtPrice !== null
+              ? Number(variant.compareAtPrice)
+              : null,
+          stock: Number(variant.stock),
+          isActive: variant.isActive,
+          image: variant.image || null,
+          imagePublicId: variant.imagePublicId || null,
         })),
-      };
-      await onSave(payload);
-    } catch (err: any) {
-      setError(err.message ?? "An error occurred.");
+      });
+    } catch (saveError) {
+      setError(errorMessage(saveError, "An error occurred."));
     } finally {
       setSaving(false);
     }
@@ -364,251 +387,126 @@ function ProductForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      {error && (
+      {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-700">
           {error}
         </div>
-      )}
-
-      {/* Basic Info */}
+      ) : null}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-[10px] font-bold uppercase text-earth mb-1">Product Name *</label>
+          <label className="mb-1 block text-[10px] font-bold uppercase text-earth">Product Name *</label>
           <input
             required
             type="text"
             value={form.name}
-            onChange={(e) => handleField("name", e.target.value)}
-            placeholder="e.g. Virgin Groundnut Oil"
-            className="w-full rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm text-forest placeholder:text-earth-lighter focus:border-forest focus:bg-white focus:outline-none"
+            onChange={(event) => handleNameChange(event.target.value)}
+            className="w-full rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm text-forest focus:border-forest focus:bg-white focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold uppercase text-earth mb-1">Slug *</label>
+          <label className="mb-1 block text-[10px] font-bold uppercase text-earth">Slug *</label>
           <input
             required
             type="text"
             value={form.slug}
-            onChange={(e) => {
+            onChange={(event) => {
               setSlugManual(true);
-              handleField("slug", e.target.value);
+              handleField("slug", event.target.value);
             }}
-            placeholder="e.g. virgin-groundnut-oil"
-            className="w-full rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm text-forest placeholder:text-earth-lighter focus:border-forest focus:bg-white focus:outline-none font-mono"
+            className="w-full rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm font-mono text-forest focus:border-forest focus:bg-white focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold uppercase text-earth mb-1">Category *</label>
+          <label className="mb-1 block text-[10px] font-bold uppercase text-earth">Category *</label>
           <select
             required
             value={form.category}
-            onChange={(e) => handleField("category", e.target.value)}
+            onChange={(event) => handleField("category", event.target.value)}
             className="w-full rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm text-forest focus:border-forest focus:bg-white focus:outline-none"
           >
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
+            {categories.map((category) => (
+              <option key={category.categoryId} value={category.slug}>
+                {category.name}
+              </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-[10px] font-bold uppercase text-earth mb-1">Made With *</label>
-          <select
-            required
-            value={form.madeWith}
-            onChange={(e) => handleField("madeWith", e.target.value)}
-            className="w-full rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm text-forest focus:border-forest focus:bg-white focus:outline-none"
-          >
-            {MADE_WITH_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-earth mb-1">Badge (optional)</label>
+          <label className="mb-1 block text-[10px] font-bold uppercase text-earth">Badge (optional)</label>
           <input
             type="text"
             value={form.badge ?? ""}
-            onChange={(e) => handleField("badge", e.target.value)}
-            placeholder="e.g. Best Seller, New"
-            className="w-full rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm text-forest placeholder:text-earth-lighter focus:border-forest focus:bg-white focus:outline-none"
+            onChange={(event) => handleField("badge", event.target.value)}
+            className="w-full rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm text-forest focus:border-forest focus:bg-white focus:outline-none"
           />
         </div>
         <div className="flex items-end pb-1">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <div
-              onClick={() => handleField("isActive", !form.isActive)}
-              className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${form.isActive ? "bg-forest" : "bg-sand"}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${form.isActive ? "translate-x-5" : ""}`} />
-            </div>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(event) => handleField("isActive", event.target.checked)}
+              className="accent-forest"
+            />
             <span className="text-sm font-semibold text-forest">
               {form.isActive ? "Active" : "Inactive"}
             </span>
           </label>
         </div>
       </div>
-
-      {/* Description */}
       <div>
-        <label className="block text-[10px] font-bold uppercase text-earth mb-1">Description *</label>
+        <label className="mb-1 block text-[10px] font-bold uppercase text-earth">Description *</label>
         <textarea
           required
           rows={3}
           value={form.description}
-          onChange={(e) => handleField("description", e.target.value)}
-          placeholder="Product description..."
-          className="w-full rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm text-forest placeholder:text-earth-lighter focus:border-forest focus:bg-white focus:outline-none resize-none"
+          onChange={(event) => handleField("description", event.target.value)}
+          className="w-full resize-none rounded-xl border border-sand bg-cream-deep/30 px-3.5 py-2.5 text-sm text-forest focus:border-forest focus:bg-white focus:outline-none"
         />
       </div>
-
-      {/* Images */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-[10px] font-bold uppercase text-earth">Product Images</label>
-        </div>
-        
-        {/* Upload Button */}
-        <div className="mb-4">
-          <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-forest/30 bg-cream/30 px-4 py-3 text-sm font-semibold text-forest hover:bg-cream/50 transition-colors ${uploadingImage ? "opacity-50 pointer-events-none" : ""}`}>
-            <svg className="h-5 w-5 text-forest" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            {uploadingImage ? "Uploading..." : "Upload New Image"}
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              onChange={handleImageUpload} 
-              disabled={uploadingImage}
-            />
-          </label>
-          <p className="mt-2 text-[10px] text-earth-light">Supported formats: JPG, PNG, WEBP. Max size: 5MB.</p>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {form.images.map((img, idx) => (
-            img && (
-            <div key={idx} className="group relative aspect-square overflow-hidden rounded-xl border border-sand bg-cream-deep">
-              {/* Image Preview */}
-              <img src={img} alt={`Product ${idx}`} className="h-full w-full object-cover" />
-              
-              {/* Overlay Actions */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => moveImage(idx, "up")}
-                    disabled={idx === 0}
-                    className="rounded bg-white/20 p-1.5 text-white hover:bg-white/40 disabled:opacity-30 disabled:hover:bg-white/20"
-                    title="Move Left"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveImage(idx, "down")}
-                    disabled={idx === form.images.length - 1}
-                    className="rounded bg-white/20 p-1.5 text-white hover:bg-white/40 disabled:opacity-30 disabled:hover:bg-white/20"
-                    title="Move Right"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeImageField(idx)}
-                  className="rounded-lg bg-red-600/90 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-red-600"
-                >
-                  Remove
-                </button>
-              </div>
-
-              {/* URL Input (Fallback for manual edit/view) */}
-              <div className="absolute bottom-0 left-0 right-0 bg-black/80 p-1">
-                 <input
-                    type="url"
-                    value={img}
-                    onChange={(e) => handleImageChange(idx, e.target.value)}
-                    placeholder="https://..."
-                    className="w-full bg-transparent text-[10px] text-white outline-none"
-                  />
-              </div>
-
-              {idx === 0 && (
-                <div className="absolute top-2 left-2 rounded bg-forest px-1.5 py-0.5 text-[10px] font-bold text-cream">
-                  MAIN
-                </div>
-              )}
-            </div>
-            )
-          ))}
-          
-          {/* Also render empty inputs if any were left by the old code */}
-          {form.images.map((img, idx) => (
-             !img && (
-               <div key={idx} className="flex flex-col gap-2 p-2 border border-sand rounded-xl bg-cream/30">
-                  <input
-                    type="url"
-                    value={img}
-                    onChange={(e) => handleImageChange(idx, e.target.value)}
-                    placeholder="Enter image URL manually..."
-                    className="flex-1 rounded-xl border border-sand bg-white px-3.5 py-2 text-xs text-forest placeholder:text-earth-lighter focus:border-forest focus:outline-none"
-                  />
-                   <button
-                      type="button"
-                      onClick={() => removeImageField(idx)}
-                      className="rounded-lg bg-red-50 px-3 py-1 text-xs font-bold text-red-600 hover:bg-red-100 self-end"
-                    >
-                      Remove Input
-                    </button>
-               </div>
-             )
-          ))}
-        </div>
-      </div>
-
-      {/* Variants */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex items-center justify-between">
           <label className="text-[10px] font-bold uppercase text-earth">
             Variants / Sizes ({form.variants.length})
           </label>
           <button
             type="button"
             onClick={addVariant}
-            className="rounded-lg border border-forest/20 bg-cream px-3 py-1.5 text-[11px] font-bold text-forest hover:bg-forest hover:text-cream transition-colors"
+            className="rounded-lg border border-forest/20 bg-cream px-3 py-1.5 text-[11px] font-bold text-forest hover:bg-forest hover:text-cream"
           >
             + Add Variant
           </button>
         </div>
         <div className="flex flex-col gap-3">
-          {form.variants.map((v, idx) => (
+          {form.variants.map((variant, index) => (
             <VariantRow
-              key={idx}
-              variant={v}
-              index={idx}
+              key={index}
+              variant={variant}
+              index={index}
+              productSlug={form.slug}
+              uploading={uploadingVariant === index}
               onChange={handleVariantChange}
+              onImageUpload={handleVariantImageUpload}
+              onImageRemove={handleVariantImageRemove}
               onRemove={removeVariant}
               canRemove={form.variants.length > 1}
             />
           ))}
         </div>
       </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-end gap-3 border-t border-beige pt-4 mt-2">
+      <div className="mt-2 flex items-center justify-end gap-3 border-t border-beige pt-4">
         <button
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="rounded-xl border border-beige px-5 py-2.5 text-sm font-bold text-earth hover:bg-cream transition-colors"
+          className="rounded-xl border border-beige px-5 py-2.5 text-sm font-bold text-earth hover:bg-cream"
         >
           Cancel
         </button>
         <button
           type="submit"
-          disabled={saving}
-          className="rounded-xl bg-forest px-6 py-2.5 text-sm font-bold text-cream hover:bg-forest/90 transition-colors disabled:opacity-60"
+          disabled={saving || uploadingVariant !== null}
+          className="rounded-xl bg-forest px-6 py-2.5 text-sm font-bold text-cream hover:bg-forest/90 disabled:opacity-60"
         >
           {saving ? "Saving…" : mode === "add" ? "Create Product" : "Save Changes"}
         </button>
@@ -617,32 +515,27 @@ function ProductForm({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Modal wrapper
-// ---------------------------------------------------------------------------
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 backdrop-blur-sm p-4 pt-8">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-8 backdrop-blur-sm">
       <div className="relative w-full max-w-3xl rounded-2xl border border-beige bg-white shadow-2xl">
-        {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-beige px-6 py-4">
           <h3 className="font-display text-lg font-bold text-forest">{title}</h3>
           <button
+            type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-earth hover:bg-cream hover:text-forest transition-colors text-lg font-bold"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-earth hover:bg-cream hover:text-forest"
+            aria-label="Close"
           >
-            ✕
+            ×
           </button>
         </div>
-        <div className="px-6 py-5 max-h-[80vh] overflow-y-auto">{children}</div>
+        <div className="max-h-[80vh] overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Deactivate / Delete Confirmation Modal
-// ---------------------------------------------------------------------------
 function ConfirmModal({
   product,
   onConfirm,
@@ -660,8 +553,8 @@ function ConfirmModal({
     setError(null);
     try {
       await onConfirm(hardDelete);
-    } catch (err: any) {
-      setError(err.message ?? "An error occurred.");
+    } catch (deleteError) {
+      setError(errorMessage(deleteError, "An error occurred."));
     } finally {
       setLoading(false);
     }
@@ -670,50 +563,40 @@ function ConfirmModal({
   return (
     <Modal title={`Manage: ${product.name}`} onClose={onCancel}>
       <div className="space-y-4">
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-700">
-            {error}
-          </div>
-        )}
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <p className="text-sm text-earth">
-          Choose how to handle <span className="font-bold text-forest">{product.name}</span>:
+          Choose how to handle <span className="font-bold text-forest">{product.name}</span>.
         </p>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-xs font-bold text-amber-800 mb-1">⚠ Deactivate (Recommended)</p>
-          <p className="text-xs text-amber-700">
-            The product will be hidden from the storefront but preserved in the database, including all historical order references.
-          </p>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-700">
+          Deactivate hides the product from the storefront and preserves its records.
         </div>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <p className="text-xs font-bold text-red-800 mb-1">🗑 Permanently Delete</p>
-          <p className="text-xs text-red-700">
-            Only allowed if no historical orders reference this product. If orders exist, the product will be deactivated instead. This action cannot be undone.
-          </p>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700">
+          Permanent deletion is allowed only when no historical orders reference the product.
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3 pt-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="rounded-xl border border-beige px-4 py-2.5 text-sm font-bold text-earth hover:bg-cream transition-colors"
+            className="rounded-xl border border-beige px-4 py-2.5 text-sm font-bold text-earth"
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={() => handle(false)}
+            onClick={() => void handle(false)}
             disabled={loading}
-            className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-800 hover:bg-amber-100 transition-colors disabled:opacity-60"
+            className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-800"
           >
-            {loading ? "Working…" : "Deactivate"}
+            Deactivate
           </button>
           <button
             type="button"
-            onClick={() => handle(true)}
+            onClick={() => void handle(true)}
             disabled={loading}
-            className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition-colors disabled:opacity-60"
+            className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700"
           >
-            {loading ? "Working…" : "Permanently Delete"}
+            Permanently Delete
           </button>
         </div>
       </div>
@@ -721,35 +604,31 @@ function ConfirmModal({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main Admin Products Client Component
-// ---------------------------------------------------------------------------
 export default function AdminProductsClient() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  // Filters
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-
-  // Modals
   const [showAdd, setShowAdd] = useState(false);
   const [editProduct, setEditProduct] = useState<AdminProduct | null>(null);
   const [confirmProduct, setConfirmProduct] = useState<AdminProduct | null>(null);
-
-  // Toast
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   function showToast(msg: string, ok = true) {
     setToast({ msg, ok });
-    setTimeout(() => setToast(null), 4000);
+    window.setTimeout(() => setToast(null), 4000);
   }
 
-  // ---------------------------------------------------------------------------
-  // Fetch products from admin API
-  // ---------------------------------------------------------------------------
+  const fetchCategories = useCallback(async () => {
+    const response = await fetch("/api/admin/categories?includeInactive=true");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Failed to fetch categories.");
+    setCategories(data.categories || []);
+  }, []);
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
@@ -758,168 +637,133 @@ export default function AdminProductsClient() {
       if (search) params.set("search", search);
       if (categoryFilter !== "all") params.set("category", categoryFilter);
       if (statusFilter !== "all") params.set("status", statusFilter);
-
-      const res = await fetch(`/api/admin/products?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to fetch products.");
-      setProducts(data.products ?? []);
-    } catch (err: any) {
-      setFetchError(err.message ?? "Failed to load products.");
+      const response = await fetch(`/api/admin/products?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to fetch products.");
+      setProducts(data.products || []);
+    } catch (error) {
+      setFetchError(errorMessage(error, "Failed to load products."));
     } finally {
       setLoading(false);
     }
   }, [search, categoryFilter, statusFilter]);
 
   useEffect(() => {
-    const t = setTimeout(() => fetchProducts(), 300);
-    return () => clearTimeout(t);
+    const timer = window.setTimeout(() => {
+      void fetchCategories().catch((error: unknown) => {
+        setFetchError(errorMessage(error, "Failed to load categories."));
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void fetchProducts(), 300);
+    return () => window.clearTimeout(timer);
   }, [fetchProducts]);
 
-  // ---------------------------------------------------------------------------
-  // Add product
-  // ---------------------------------------------------------------------------
-  async function handleAdd(payload: any) {
-    const res = await fetch("/api/products", {
+  async function handleAdd(payload: Record<string, unknown>) {
+    const response = await fetch("/api/admin/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to create product.");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Failed to create product.");
     setShowAdd(false);
-    showToast("Product created successfully! 🎉");
-    fetchProducts();
+    showToast("Product created successfully.");
+    void fetchProducts();
   }
 
-  // ---------------------------------------------------------------------------
-  // Edit product
-  // ---------------------------------------------------------------------------
-  async function handleEdit(payload: any) {
+  async function handleEdit(payload: Record<string, unknown>) {
     if (!editProduct) return;
-    const res = await fetch(`/api/admin/products/${editProduct.productId}`, {
+    const response = await fetch(`/api/admin/products/${editProduct.productId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to update product.");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Failed to update product.");
     setEditProduct(null);
-    showToast("Product updated successfully! ✅");
-    fetchProducts();
+    showToast("Product updated successfully.");
+    void fetchProducts();
   }
 
-  // ---------------------------------------------------------------------------
-  // Toggle active/inactive
-  // ---------------------------------------------------------------------------
   async function handleToggleActive(product: AdminProduct) {
-    const res = await fetch(`/api/admin/products/${product.productId}`, {
+    const response = await fetch(`/api/admin/products/${product.productId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !product.isActive }),
     });
-    const data = await res.json();
-    if (!res.ok) {
+    const data = await response.json();
+    if (!response.ok) {
       showToast(data.error || "Failed to update status.", false);
       return;
     }
-    showToast(
-      product.isActive ? "Product deactivated." : "Product activated! ✅",
-      !product.isActive
-    );
-    fetchProducts();
+    showToast(product.isActive ? "Product deactivated." : "Product activated.");
+    void fetchProducts();
   }
 
-  // ---------------------------------------------------------------------------
-  // Delete / deactivate
-  // ---------------------------------------------------------------------------
   async function handleConfirmDelete(hardDelete: boolean) {
     if (!confirmProduct) return;
-    const url = `/api/admin/products/${confirmProduct.productId}${hardDelete ? "?hardDelete=true" : ""}`;
-    const res = await fetch(url, { method: "DELETE" });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to process request.");
+    const response = await fetch(
+      `/api/admin/products/${confirmProduct.productId}${hardDelete ? "?hardDelete=true" : ""}`,
+      { method: "DELETE" },
+    );
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Failed to process request.");
     setConfirmProduct(null);
     showToast(data.message || "Done.");
-    fetchProducts();
+    void fetchProducts();
   }
 
-  // ---------------------------------------------------------------------------
-  // Computed display values
-  // ---------------------------------------------------------------------------
-  const activeCount = products.filter((p) => p.isActive).length;
-  const inactiveCount = products.filter((p) => !p.isActive).length;
+  const activeCount = products.filter((product) => product.isActive).length;
+  const inactiveCount = products.length - activeCount;
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl border px-5 py-3.5 shadow-xl text-sm font-semibold transition-all ${
-            toast.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-red-200 bg-red-50 text-red-800"
-          }`}
-        >
-          {toast.ok ? "✅" : "❌"} {toast.msg}
+      {toast ? (
+        <div className={`fixed bottom-6 right-6 z-50 rounded-2xl border px-5 py-3.5 shadow-xl text-sm font-semibold ${
+          toast.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"
+        }`}>
+          {toast.msg}
         </div>
-      )}
-
-      {/* Header */}
+      ) : null}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold text-forest">
-            Product Catalog
-          </h2>
+          <h2 className="font-display text-2xl font-bold text-forest">Product Catalog</h2>
           <p className="mt-1 text-xs text-earth">
-            {products.length} product{products.length !== 1 ? "s" : ""} —{" "}
-            <span className="text-emerald-700 font-semibold">{activeCount} active</span>
-            {inactiveCount > 0 && (
-              <span className="text-amber-700 font-semibold">, {inactiveCount} inactive</span>
-            )}
+            {products.length} products — <span className="font-semibold text-emerald-700">{activeCount} active</span>
+            {inactiveCount > 0 ? <span className="ml-1 font-semibold text-amber-700">{inactiveCount} inactive</span> : null}
           </p>
         </div>
         <button
           type="button"
           onClick={() => setShowAdd(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-forest px-5 py-2.5 text-sm font-bold text-cream shadow-md hover:bg-forest/90 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-forest px-5 py-2.5 text-sm font-bold text-cream shadow-md hover:bg-forest/90"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Add Product
+          + Add Product
         </button>
       </div>
-
-      {/* Filters */}
       <div className="flex flex-col gap-3 rounded-2xl border border-beige bg-white p-4 shadow-sm sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-earth-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search by name, slug, description…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-sand bg-cream-deep/30 pl-9 pr-4 py-2.5 text-xs text-forest placeholder:text-earth-lighter focus:border-forest focus:bg-white focus:outline-none"
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Search by name, slug, or description"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="flex-1 rounded-xl border border-sand bg-cream-deep/30 px-4 py-2.5 text-xs text-forest focus:border-forest focus:bg-white focus:outline-none"
+        />
         <select
           value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
+          onChange={(event) => setCategoryFilter(event.target.value)}
           className="rounded-xl border border-sand bg-cream-deep/30 px-4 py-2.5 text-xs text-forest focus:border-forest focus:bg-white focus:outline-none"
         >
           <option value="all">All Categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
+          {categories.map((category) => <option key={category.categoryId} value={category.slug}>{category.name}</option>)}
         </select>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(event) => setStatusFilter(event.target.value)}
           className="rounded-xl border border-sand bg-cream-deep/30 px-4 py-2.5 text-xs text-forest focus:border-forest focus:bg-white focus:outline-none"
         >
           <option value="all">All Status</option>
@@ -927,32 +771,12 @@ export default function AdminProductsClient() {
           <option value="inactive">Inactive Only</option>
         </select>
       </div>
-
-      {/* Error */}
-      {fetchError && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
-          {fetchError}
-        </div>
-      )}
-
-      {/* Products Table */}
+      {fetchError ? <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{fetchError}</div> : null}
       <div className="overflow-hidden rounded-2xl border border-beige bg-white shadow-sm">
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-sm text-earth">
-            <svg className="mr-2 h-5 w-5 animate-spin text-forest" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Loading products…
-          </div>
+          <div className="py-16 text-center text-sm text-earth">Loading products…</div>
         ) : products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-earth">
-            <svg className="h-12 w-12 text-sand mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-            <p className="text-sm font-semibold">No products found.</p>
-            <p className="text-xs mt-1 text-earth-lighter">Try adjusting filters or add a new product.</p>
-          </div>
+          <div className="py-16 text-center text-sm text-earth">No products found.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -969,104 +793,41 @@ export default function AdminProductsClient() {
               </thead>
               <tbody className="divide-y divide-beige/60">
                 {products.map((product) => {
-                  const prices = product.variants.map((v) => Number(v.price)).filter((p) => !isNaN(p));
-                  const minP = prices.length ? Math.min(...prices) : product.price;
-                  const maxP = prices.length ? Math.max(...prices) : product.price;
-                  const stock = totalStock(product.variants);
-                  const cat = CATEGORIES.find((c) => c.value === product.category);
-
+                  const prices = product.variants.map((variant) => Number(variant.price)).filter((price) => !Number.isNaN(price));
+                  const minPrice = prices.length ? Math.min(...prices) : product.price || 0;
+                  const maxPrice = prices.length ? Math.max(...prices) : product.price || 0;
+                  const category = categories.find((item) => item.slug === product.category);
+                  const image = product.variants.find((variant) => variant.isActive)?.image || product.variants[0]?.image;
                   return (
-                    <tr key={product.productId} className="group hover:bg-cream/30 transition-colors">
-                      {/* Product */}
+                    <tr key={product.productId} className="hover:bg-cream/30">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-beige bg-cream-deep">
-                            {product.images?.[0] ? (
-                              <Image
-                                src={product.images[0]}
-                                alt={product.name}
-                                width={44}
-                                height={44}
-                                unoptimized
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-earth-lighter text-lg">📦</div>
-                            )}
+                            {image ? <Image src={image} alt={product.name} width={44} height={44} unoptimized className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center text-earth-light">—</span>}
                           </div>
                           <div>
                             <p className="font-bold text-forest">{product.name}</p>
-                            <p className="text-[10px] text-earth-light font-mono">{product.slug}</p>
-                            {product.badge && (
-                              <span className="mt-0.5 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-700 border border-amber-200">
-                                {product.badge}
-                              </span>
-                            )}
+                            <p className="font-mono text-[10px] text-earth-light">{product.slug}</p>
                           </div>
                         </div>
                       </td>
-                      {/* Category */}
-                      <td className="px-5 py-4 text-earth font-medium">
-                        {cat?.label ?? product.category}
-                      </td>
-                      {/* Variants */}
+                      <td className="px-5 py-4 font-medium text-earth">{category?.name || product.category}</td>
                       <td className="px-5 py-4 text-center font-semibold text-forest">
                         {product.variants.length}
-                        <span className="block text-[10px] font-normal text-earth-lighter">
-                          {product.variants.filter((v) => v.isActive).length} active
-                        </span>
+                        <span className="block text-[10px] font-normal text-earth-light">{product.variants.filter((variant) => variant.isActive).length} active</span>
                       </td>
-                      {/* Price Range */}
-                      <td className="px-5 py-4 font-bold text-forest">
-                        {minP === maxP ? formatPrice(minP) : `${formatPrice(minP)} – ${formatPrice(maxP)}`}
-                      </td>
-                      {/* Stock */}
+                      <td className="px-5 py-4 font-bold text-forest">{minPrice === maxPrice ? formatPrice(minPrice) : `${formatPrice(minPrice)} – ${formatPrice(maxPrice)}`}</td>
+                      <td className="px-5 py-4 text-center font-bold text-forest">{totalStock(product.variants)}</td>
                       <td className="px-5 py-4 text-center">
-                        <span className={`font-bold ${stock === 0 ? "text-red-600" : stock < 10 ? "text-amber-600" : "text-forest"}`}>
-                          {stock}
-                        </span>
-                        <span className="block text-[10px] text-earth-lighter">units</span>
-                      </td>
-                      {/* Status */}
-                      <td className="px-5 py-4 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(product)}
-                          title={product.isActive ? "Click to deactivate" : "Click to activate"}
-                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold transition-colors cursor-pointer ${
-                            product.isActive
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                              : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                          }`}
-                        >
-                          <span className={`h-1.5 w-1.5 rounded-full ${product.isActive ? "bg-emerald-500" : "bg-amber-500"}`} />
+                        <button type="button" onClick={() => void handleToggleActive(product)} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${product.isActive ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
                           {product.isActive ? "Active" : "Inactive"}
                         </button>
                       </td>
-                      {/* Actions */}
                       <td className="px-5 py-4">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setEditProduct(product)}
-                            className="rounded-lg border border-forest/20 bg-cream px-3 py-1.5 text-[11px] font-bold text-forest hover:bg-forest hover:text-cream transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <Link
-                            href={`/products/${product.slug}`}
-                            target="_blank"
-                            className="rounded-lg border border-beige bg-cream-deep px-3 py-1.5 text-[11px] font-bold text-earth hover:text-forest transition-colors"
-                          >
-                            View
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmProduct(product)}
-                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-100 transition-colors"
-                          >
-                            Delete
-                          </button>
+                          <button type="button" onClick={() => setEditProduct(product)} className="rounded-lg border border-forest/20 bg-cream px-3 py-1.5 text-[11px] font-bold text-forest hover:bg-forest hover:text-cream">Edit</button>
+                          <Link href={`/admin/products/${encodeURIComponent(product.productId)}`} className="rounded-lg border border-beige bg-cream-deep px-3 py-1.5 text-[11px] font-bold text-earth hover:text-forest">View</Link>
+                          <button type="button" onClick={() => setConfirmProduct(product)} className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-100">Delete</button>
                         </div>
                       </td>
                     </tr>
@@ -1077,39 +838,17 @@ export default function AdminProductsClient() {
           </div>
         )}
       </div>
-
-      {/* ---- Add Modal ---- */}
-      {showAdd && (
+      {showAdd ? (
         <Modal title="Add New Product" onClose={() => setShowAdd(false)}>
-          <ProductForm
-            mode="add"
-            initial={emptyProduct()}
-            onSave={handleAdd}
-            onCancel={() => setShowAdd(false)}
-          />
+          <ProductForm mode="add" categories={categories} initial={emptyProduct(categories[0]?.slug)} onSave={handleAdd} onCancel={() => setShowAdd(false)} />
         </Modal>
-      )}
-
-      {/* ---- Edit Modal ---- */}
-      {editProduct && (
+      ) : null}
+      {editProduct ? (
         <Modal title={`Edit: ${editProduct.name}`} onClose={() => setEditProduct(null)}>
-          <ProductForm
-            mode="edit"
-            initial={editProduct}
-            onSave={handleEdit}
-            onCancel={() => setEditProduct(null)}
-          />
+          <ProductForm mode="edit" categories={categories} initial={editProduct} onSave={handleEdit} onCancel={() => setEditProduct(null)} />
         </Modal>
-      )}
-
-      {/* ---- Confirm Delete Modal ---- */}
-      {confirmProduct && (
-        <ConfirmModal
-          product={confirmProduct}
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setConfirmProduct(null)}
-        />
-      )}
+      ) : null}
+      {confirmProduct ? <ConfirmModal product={confirmProduct} onConfirm={handleConfirmDelete} onCancel={() => setConfirmProduct(null)} /> : null}
     </div>
   );
 }

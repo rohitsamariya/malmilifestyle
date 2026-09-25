@@ -1,25 +1,30 @@
 import Link from "next/link";
-import { ALL_TABS } from "@/data/categories";
-import type { CategorySlug } from "@/data/types";
+import type { Category, CategorySlug } from "@/data/types";
 import { cn, productsHref } from "@/lib/utils";
 
 interface CategoryTabsProps {
   activeCategory: CategorySlug;
+  categories: Category[];
 }
 
-/**
- * Flat category navigation above the grid. Pure links — each tab maps to its
- * own `/products/<slug>` route, so active state comes from the URL path.
- * Horizontally scrollable on mobile, a compact pill row on desktop.
- */
-export default function CategoryTabs({ activeCategory }: CategoryTabsProps) {
+export default function CategoryTabs({ activeCategory, categories }: CategoryTabsProps) {
+  const tabs: Category[] = [
+    {
+      slug: "all",
+      name: "All Products",
+      shortName: "All",
+      description: "Everything from Malmi under one roof.",
+    },
+    ...categories,
+  ];
+
   return (
     <nav
       aria-label="Filter by category"
       className="scrollbar-none -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0"
     >
       <ul className="flex min-w-max gap-2">
-        {ALL_TABS.map((category) => {
+        {tabs.map((category) => {
           const isActive = category.slug === activeCategory;
           return (
             <li key={category.slug}>

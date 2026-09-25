@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SearchIcon, XIcon } from "@/components/ui/icons";
-import { searchProducts } from "@/data/products";
 import { formatPrice } from "@/lib/utils";
+import type { Product } from "@/data/types";
 
 interface SearchBarProps {
   /** When true the input auto-focuses on mount (mobile drawer/toggle). */
@@ -22,20 +22,44 @@ const MAX_DROPDOWN = 5;
  *
  * Visual rule: the outer <div> is the ONLY visible border.
  * The <input> is completely borderless and outline-free.
+ *
+ * Search results are fetched from the API (MongoDB) instead of static data.
  */
 export default function SearchBar({ autoFocus = false, onClose, className }: SearchBarProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [results, setResults] = useState<Product[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Live results from the local product data
-  const results = useMemo(() => {
-    const q = query.trim();
-    if (!q) return [];
-    return searchProducts({ query: q }).slice(0, MAX_DROPDOWN);
-  }, [query]);
+  // Debounced search via API
+  const fetchResults = useCallback(async (q: string) => {
+    if (!q.trim()) {
+      setResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/products?search=${encodeURIComponent(q.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        setResults((data.products || data || []).slice(0, MAX_DROPDOWN));
+      }
+    } catch {
+      // Silently fail on network errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchResults(query);
+    }, 250);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query, fetchResults]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -74,6 +98,7 @@ export default function SearchBar({ autoFocus = false, onClose, className }: Sea
 
   function clear() {
     setQuery("");
+    setResults([]);
     setOpen(false);
     inputRef.current?.focus();
   }
@@ -99,9 +124,8 @@ export default function SearchBar({ autoFocus = false, onClose, className }: Sea
           autoComplete="off"
           autoFocus={autoFocus}
           placeholder="Search products..."
-          aria-label="Search products"
-          aria-expanded={open}
-          aria-haspopup="listbox"
+           aria-label="Search products"
+           aria-haspopup="listbox"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -150,8 +174,8 @@ export default function SearchBar({ autoFocus = false, onClose, className }: Sea
                     >
                       <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-cream-deep">
                         <Image
-                          src={product.images[0]}
-                          alt={product.name}
+                           src={product.variants[0]?.image || "/images/hero-visual.svg"}
+                           alt={product.name}
                           width={44}
                           height={44}
                           unoptimized
@@ -162,9 +186,8 @@ export default function SearchBar({ autoFocus = false, onClose, className }: Sea
                         <p className="truncate text-[13px] font-semibold text-forest">
                           {product.name}
                         </p>
-                        <p className="text-[11px] text-earth-light">
-                          {product.madeWith}
-                          {product.price !== null && (
+                         <p className="text-[11px] text-earth-light">
+                           {product.price !== null && (
                             <span className="ml-2 font-semibold text-forest">
                               from {formatPrice(product.price)}
                             </span>

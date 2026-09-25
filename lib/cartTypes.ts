@@ -10,7 +10,7 @@ export interface CartItem {
   productName: string;
   /** variant.size — display label */
   variantSize: string;
-  /** product.images[0] */
+  /** variant.image */
   productImage: string;
   /** variant selling price (INR) */
   price: number;

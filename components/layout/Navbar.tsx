@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CATEGORIES } from "@/data/categories";
 import SearchBar from "@/components/products/SearchBar";
 import CartDrawer from "@/components/cart/CartDrawer";
 import {
@@ -14,13 +13,14 @@ import {
   UserIcon,
 } from "@/components/ui/icons";
 import { useCart } from "@/lib/cartContext";
+import useCatalogCategories from "@/components/layout/useCatalogCategories";
 import { cn, productsHref } from "@/lib/utils";
 
-function activeFromPath(pathname: string): string {
+function activeFromPath(pathname: string, categories: Array<{ slug: string }>): string {
   if (pathname === "/products" || pathname === "/products/") return "all";
   if (pathname.startsWith("/products/")) {
     const segment = pathname.split("/")[2] ?? "";
-    return CATEGORIES.some((c) => c.slug === segment) ? segment : "";
+    return categories.some((category) => category.slug === segment) ? segment : "";
   }
   return "";
 }
@@ -73,17 +73,17 @@ function IconBtn({
 
 export default function Navbar() {
   const pathname = usePathname();
-
-  // Hide customer Navbar on admin routes
-  if (pathname.startsWith("/admin")) {
-    return null;
-  }
-
-  const activeCategory = activeFromPath(pathname);
+  const categories = useCatalogCategories();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const { cartCount } = useCart();
+
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
+
+  const activeCategory = activeFromPath(pathname, categories);
 
   const categoryLink = (slug: string) =>
     productsHref({ category: slug === "all" ? undefined : slug });
@@ -142,7 +142,7 @@ export default function Navbar() {
             >
               All Products
             </Link>
-            {CATEGORIES.map((category) => {
+            {categories.map((category) => {
               const isActive = activeCategory === category.slug;
               return (
                 <Link
@@ -230,7 +230,7 @@ export default function Navbar() {
                   <span className="text-xs text-earth-lighter">All</span>
                 </Link>
               </li>
-              {CATEGORIES.map((category) => {
+              {categories.map((category) => {
                 const isActive = activeCategory === category.slug;
                 return (
                   <li key={category.slug}>

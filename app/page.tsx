@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import HomePage from "@/components/home/HomePage";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     absolute: "Malmi Lifestyle | Pure, Natural & Traditional Foods",

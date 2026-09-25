@@ -1,23 +1,22 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CATEGORIES } from "@/data/categories";
-import { getProducts } from "@/data/products";
-import type { ProductCategory } from "@/data/types";
+import type { Category, Product } from "@/data/types";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { productsHref } from "@/lib/utils";
-import { CATEGORY_BANNERS } from "@/components/home/categoryVisuals";
+import { getCategoryBanner } from "@/components/home/categoryVisuals";
 
-const CARDS = CATEGORIES.map((category) => ({
-  ...category,
-  count: getProducts().filter((p) => p.category === category.slug).length,
-  image: CATEGORY_BANNERS[category.slug as ProductCategory],
-}));
+interface CategorySectionProps {
+  categories: Category[];
+  products: Product[];
+}
 
-/**
- * "Explore Our Collections" — four large premium category cards.
- * Desktop 4 columns, tablet 2, mobile 1.
- */
-export default function CategorySection() {
+export default function CategorySection({ categories, products }: CategorySectionProps) {
+  const cards = categories.map((category) => ({
+    ...category,
+    count: products.filter((product) => product.category === category.slug).length,
+    image: getCategoryBanner(category),
+  }));
+
   return (
     <section aria-labelledby="collections-heading" className="bg-cream">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
@@ -35,7 +34,7 @@ export default function CategorySection() {
         </div>
 
         <ul className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {CARDS.map((category) => (
+          {cards.map((category) => (
             <li key={category.slug}>
               <Link
                 href={productsHref({ category: category.slug })}
