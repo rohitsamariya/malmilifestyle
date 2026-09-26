@@ -31,6 +31,14 @@ interface CartContextValue {
   updateQuantity: (productId: string, variantId: string, qty: number) => void;
   removeFromCart: (productId: string, variantId: string) => void;
   clearCart: () => void;
+  /**
+   * Removes only the lines that were actually purchased, reducing each line to
+   * the quantity left over. Used after checkout so a cart containing extra
+   * items the customer did not order is preserved.
+   */
+  removePurchasedItems: (
+    purchased: Array<{ productId: string; variantId: string; quantity: number }>,
+  ) => void;
 
   /** Toast message — null when nothing to show */
   toast: string | null;
@@ -78,23 +86,28 @@ function cartKey(productId: string, variantId: string) {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hydrated = useRef(false);
 
   // Hydrate from localStorage once on mount (client-only)
   useEffect(() => {
-    if (!hydrated.current) {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
       setItems(loadFromStorage());
-      hydrated.current = true;
-    }
+      setIsHydrated(true);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Persist whenever items change (after hydration)
   useEffect(() => {
-    if (hydrated.current) {
+    if (isHydrated) {
       saveToStorage(items);
     }
-  }, [items]);
+  }, [isHydrated, items]);
 
   function showToast(msg: string) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -151,6 +164,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems([]);
   }, []);
 
+  const removePurchasedItems = useCallback(
+    (purchased: Array<{ productId: string; variantId: string; quantity: number }>) => {
+      if (purchased.length === 0) return;
+      setItems((prev) => {
+        const ordered = new Map(
+          purchased.map((line) => [cartKey(line.productId, line.variantId), line.quantity]),
+        );
+        const next: CartItem[] = [];
+        for (const item of prev) {
+          const orderedQuantity = ordered.get(cartKey(item.productId, item.variantId));
+          if (orderedQuantity === undefined) {
+            next.push(item);
+            continue;
+          }
+          const remaining = item.quantity - orderedQuantity;
+          if (remaining > 0) next.push({ ...item, quantity: remaining });
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   const cartCount = useMemo(
     () => items.reduce((s, i) => s + i.quantity, 0),
     [items],
@@ -178,6 +214,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     updateQuantity,
     removeFromCart,
     clearCart,
+    removePurchasedItems,
     toast,
   };
 

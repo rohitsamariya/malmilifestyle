@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SearchBar from "@/components/products/SearchBar";
@@ -71,13 +71,24 @@ function IconBtn({
   );
 }
 
-export default function Navbar() {
+export default function Navbar({ isCustomerSignedIn = false }: { isCustomerSignedIn?: boolean }) {
   const pathname = usePathname();
   const categories = useCatalogCategories();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [navbarHydrated, setNavbarHydrated] = useState(false);
   const { cartCount } = useCart();
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) setNavbarHydrated(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (pathname.startsWith("/admin")) {
     return null;
@@ -97,7 +108,7 @@ export default function Navbar() {
         </div>
 
         {/* Main bar */}
-        <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:h-[72px] lg:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:h-18 lg:px-8">
 
           {/* Mobile hamburger */}
           <button
@@ -190,15 +201,19 @@ export default function Navbar() {
               </IconBtn>
             )}
 
-            {/* Profile */}
-            <IconBtn label="Profile" href="/profile" isActive={pathname === "/profile"}>
+            {/* Profile — signed-out visitors are sent straight to the sign-in page */}
+            <IconBtn
+              label={isCustomerSignedIn ? "Your account" : "Sign in"}
+              href={isCustomerSignedIn ? "/profile" : "/login"}
+              isActive={pathname === "/profile"}
+            >
               <UserIcon className="h-5 w-5" />
             </IconBtn>
 
             {/* Cart — opens drawer */}
             <IconBtn
-              label={cartCount > 0 ? `Cart — ${cartCount} items` : "Cart"}
-              badge={cartCount}
+              label={navbarHydrated && cartCount > 0 ? `Cart — ${cartCount} items` : "Cart"}
+              badge={navbarHydrated ? cartCount : 0}
               onClick={() => setCartOpen(true)}
             >
               <BagIcon className="h-5 w-5" />

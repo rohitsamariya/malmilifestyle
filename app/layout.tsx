@@ -1,10 +1,15 @@
 ﻿import type { Metadata } from "next";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CartToast from "@/components/cart/CartToast";
 import { CartProvider } from "@/lib/cartContext";
+import {
+  CUSTOMER_SESSION_COOKIE,
+  verifyCustomerSessionToken,
+} from "@/lib/customer-session";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,7 +37,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Cookie-signature only, no database hit: this just decides whether the
+  // navbar icon points at the account or at the sign-in page. Every protected
+  // page and API re-verifies the session against MongoDB.
+  const cookieStore = await cookies();
+  const isCustomerSignedIn =
+    (await verifyCustomerSessionToken(cookieStore.get(CUSTOMER_SESSION_COOKIE)?.value)) !== null;
+
   return (
     <html
       lang="en"
@@ -41,7 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-cream">
         <CartProvider>
           <Suspense fallback={null}>
-            <Navbar />
+            <Navbar isCustomerSignedIn={isCustomerSignedIn} />
           </Suspense>
           <div className="flex flex-1 flex-col">{children}</div>
           <Footer />

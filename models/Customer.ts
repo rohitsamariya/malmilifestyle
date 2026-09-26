@@ -14,9 +14,17 @@ export interface ICustomerAddress {
 
 export interface ICustomer extends Document {
   email: string;
-  phone?: string;
-  fullName?: string;
+  /** bcrypt hash. `select: false` keeps it out of every query by default. */
+  passwordHash: string;
+  phone: string;
+  /**
+   * Always false at this stage: SMS OTP verification is not implemented, so a
+   * stored phone number must never be treated as proven.
+   */
+  phoneVerified: boolean;
+  fullName: string;
   addresses: ICustomerAddress[];
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,9 +50,16 @@ const CustomerSchema = new Schema<ICustomer>(
       trim: true,
       index: true,
     },
+    passwordHash: {
+      type: String,
+      default: "",
+      select: false,
+    },
     phone: { type: String, default: "" },
-    fullName: { type: String, default: "" },
+    phoneVerified: { type: Boolean, default: false },
+    fullName: { type: String, default: "", trim: true },
     addresses: [CustomerAddressSchema],
+    isActive: { type: Boolean, default: true, index: true },
   },
   { timestamps: true }
 );

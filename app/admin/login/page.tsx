@@ -36,19 +36,32 @@ export default function AdminLoginPage() {
         body: JSON.stringify({ email: cleanEmail, password }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
-      if (!res.ok || !data.success) {
-        setErrorMessage(data.error || "Invalid email or password.");
-        setLoading(false);
+      if (!res.ok || !data?.success) {
+        setErrorMessage(data?.error || "Invalid email or password.");
         return;
       }
 
-      // Successful server authentication -> Redirect to /admin
-      router.push("/admin");
-      router.refresh();
+      // The server has verified the credentials and the response carried the
+      // HttpOnly `malmi_admin_session` cookie, so the browser already holds the
+      // session. Only now is it safe to move on: navigating earlier could fetch
+      // /admin before the cookie landed and be bounced straight back here.
+      //
+      // `replace` (not `push`) so Back does not return to a login form that is
+      // now backed by a live session. `replace` also issues a fresh server
+      // request for /admin, so the router cache cannot hand back the anonymous
+      // payload captured when the proxy first redirected us here.
+      //
+      // Deliberately no `router.refresh()`: called in the same tick it races
+      // the transition above, re-renders the login route and wins, leaving the
+      // admin on /admin/login with a valid session until they refresh manually.
+      router.replace("/admin");
     } catch {
       setErrorMessage("An error occurred during sign in. Please try again.");
+    } finally {
+      // Always release the button, so a stuck spinner can never require a
+      // manual browser refresh to clear.
       setLoading(false);
     }
   }

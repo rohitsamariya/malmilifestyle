@@ -247,22 +247,15 @@ export default function CartPage() {
               </div>
             </dl>
 
-            <button
-              type="button"
-              disabled
-              className="mt-6 flex h-13 w-full cursor-not-allowed items-center justify-center rounded-xl bg-forest/40 text-sm font-bold text-cream"
+            <Link
+              href="/checkout"
+              className="mt-6 flex h-13 w-full items-center justify-center rounded-xl bg-forest text-sm font-bold text-cream transition-colors hover:bg-[#1b4d30]"
             >
               Proceed to Checkout
-              <span className="ml-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wider">
-                Coming Soon
-              </span>
-            </button>
+            </Link>
 
             <p className="mt-3 text-center text-xs text-earth-light">
-              Secure checkout coming soon.{" "}
-              <a href="mailto:care@malmilifestyle.in" className="text-forest underline underline-offset-2">
-                Order via email
-              </a>
+              Cash on Delivery available. Final prices are confirmed at checkout.
             </p>
           </div>
         </aside>

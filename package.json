@@ -10,9 +10,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "npm run test:orders && npm run test:customers",
+    "test:orders": "tsx --test tests/order-rules.test.ts",
+    "test:customers": "tsx --test tests/customer-auth.test.ts tests/customer-orders.test.ts",
     "migrate:live": "tsx scripts/migrateToLive.ts"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cloudinary": "^2.11.0",
     "mongoose": "^9.10.2",
     "nanoid": "^6.0.1",

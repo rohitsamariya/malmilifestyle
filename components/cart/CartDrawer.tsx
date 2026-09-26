@@ -66,6 +66,8 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
     if (window.confirm("Clear your entire cart?")) clearCart();
   }
 
+  if (!open) return null;
+
   return (
     <>
       {/* Overlay */}
@@ -240,16 +242,13 @@ export default function CartDrawer({ open, onClose }: CartDrawerProps) {
 
               {/* Actions */}
               <div className="mt-4 flex flex-col gap-2.5">
-                <button
-                  type="button"
-                  disabled
-                  className="flex h-12 w-full cursor-not-allowed items-center justify-center rounded-xl bg-forest/40 text-sm font-bold text-cream"
+                <Link
+                  href="/checkout"
+                  onClick={onClose}
+                  className="flex h-12 w-full items-center justify-center rounded-xl bg-forest text-sm font-bold text-cream transition-colors hover:bg-[#1b4d30]"
                 >
                   Proceed to Checkout
-                  <span className="ml-2 rounded-full bg-white/20 px-2 py-0.5 text-[9px] uppercase tracking-wider">
-                    Soon
-                  </span>
-                </button>
+                </Link>
 
                 <Link
                   href="/cart"
