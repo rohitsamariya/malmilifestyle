@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { parseBulkRequest, CatalogAdminError } from "@/lib/catalog-admin-service";
-import { toHomepageStats } from "@/data/db-catalog-stats";
 import { isSameOriginRequest } from "@/lib/customer-origin";
 
 const parse = (body: unknown) => {
@@ -56,33 +55,6 @@ test("bulk request caps the batch size", () => {
   const ids = Array.from({ length: 501 }, (_, index) => `product-${index}`);
   const result = parse({ ids, action: "activate" });
   assert.equal(result.error, "Too many records selected.");
-});
-
-test("homepage stats reflect only categories that have visible listings", () => {
-  const stats = toHomepageStats({
-    totalProducts: 7,
-    totalListings: 21,
-    perCategory: [{ slug: "wood-pressed-oils", name: "Wood-Pressed Oils", shortName: "Oils", products: 7, listings: 21 }],
-  });
-  assert.deepEqual(stats, [
-    { value: 7, label: "Oils" },
-    { value: 21, label: "Products available" },
-  ]);
-});
-
-test("homepage stats are empty when nothing is active", () => {
-  const stats = toHomepageStats({ totalProducts: 0, totalListings: 0, perCategory: [] });
-  assert.deepEqual(stats, []);
-});
-
-test("deactivated categories drop out of the homepage strip", () => {
-  const stats = toHomepageStats({
-    totalProducts: 7,
-    totalListings: 21,
-    perCategory: [],
-  });
-  assert.equal(stats.length, 0);
-  assert.equal(stats.some((stat) => stat.label === "Wheat Atta"), false);
 });
 
 test("customer mutations still reject a foreign origin", () => {

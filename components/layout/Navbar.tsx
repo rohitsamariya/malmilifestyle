@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import SearchBar from "@/components/products/SearchBar";
 import CartDrawer from "@/components/cart/CartDrawer";
@@ -18,8 +19,8 @@ import { cn, productsHref } from "@/lib/utils";
 
 /** Static navigation destinations. The catalog itself stays DB-driven. */
 const STATIC_LINKS = [
-  { label: "About Us", href: "/#about" },
-  { label: "Contact", href: "#contact" },
+  { label: "About Us", href: "/about" },
+  { label: "Contact", href: "/contact" },
 ] as const;
 
 /** "All Oils" for Wood-Pressed Oils, "All Wheat Atta" for a future category. */
@@ -161,19 +162,22 @@ export default function Navbar({ isCustomerSignedIn = false }: { isCustomerSigne
             {menuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
           </button>
 
-          {/* Logo */}
+          {/* Logo — image only, no text */}
           <Link
             href="/"
-            className="flex shrink-0 flex-col leading-none"
+            className="flex shrink-0 items-center leading-none"
             aria-label="Malmi Lifestyle home"
             onClick={() => setMenuOpen(false)}
           >
-            <span className="font-display text-lg font-semibold tracking-[0.28em] text-forest lg:text-xl">
-              MALMI
-            </span>
-            <span className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.5em] text-earth">
-              Lifestyle
-            </span>
+            <Image
+              src="/images/malmi-logo.png"
+              alt="Malmi Lifestyle"
+              width={220}
+              height={100}
+              unoptimized
+              priority
+              className="h-10 w-auto lg:h-11"
+            />
           </Link>
 
           {/* Desktop nav — Home, the DB-driven category dropdowns, then static links */}

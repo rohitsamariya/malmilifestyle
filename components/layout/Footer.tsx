@@ -1,25 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { productsHref } from "@/lib/utils";
 import useCatalogCategories from "@/components/layout/useCatalogCategories";
+import useCatalogProducts from "@/components/layout/useCatalogProducts";
 import NewsletterForm from "@/components/layout/NewsletterForm";
 
 const COMPANY_LINKS = [
-  { label: "About", href: "/#about" },
-  { label: "Why Malmi", href: "/#why-malmi" },
-  { label: "Contact", href: "#contact" },
+  { label: "About Us", href: "/about" },
+  { label: "Contact", href: "/contact" },
 ];
 
 const SUPPORT_LINKS = [
-  { label: "Contact", href: "#contact" },
-  { label: "FAQs", href: "#faqs" },
+  { label: "Contact", href: "/contact" },
 ];
 
 export default function Footer() {
   const pathname = usePathname();
   const categories = useCatalogCategories();
+  const products = useCatalogProducts();
 
   // Hide customer Footer on admin routes
   if (pathname.startsWith("/admin")) {
@@ -30,12 +31,14 @@ export default function Footer() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.2fr] lg:px-8">
         {/* Brand + newsletter */}
         <div>
-          <p className="font-display text-2xl font-semibold tracking-[0.28em]">
-            MALMI
-          </p>
-          <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.5em] text-gold-soft">
-            Lifestyle
-          </p>
+          <Image
+            src="/images/malmi-logo.png"
+            alt="Malmi Lifestyle"
+            width={220}
+            height={100}
+            unoptimized
+            className="h-12 w-auto"
+          />
           <p className="mt-5 max-w-xs text-sm leading-relaxed text-cream/75">
             Pure, natural and traditional foods for the everyday Indian kitchen —
             wood-pressed oils and stone-ground flours milled the old way.
@@ -77,6 +80,15 @@ export default function Footer() {
               className="text-sm text-cream/75 transition-colors hover:text-cream"
             >
               {category.name}
+            </Link>
+          ))}
+          {products.map((product) => (
+            <Link
+              key={product.slug}
+              href={`/products/${product.slug}`}
+              className="text-sm text-cream/75 transition-colors hover:text-cream"
+            >
+              {product.name}
             </Link>
           ))}
         </nav>

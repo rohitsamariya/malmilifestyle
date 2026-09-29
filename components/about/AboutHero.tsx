@@ -2,36 +2,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
-export interface HeroProps {
-  /** Eyebrow label, derived from the active category. */
-  eyebrow: string;
-  /** Hero destination — the active category listing, e.g. /products/wood-pressed-oils. */
+interface AboutHeroProps {
+  /** Link for the primary CTA, pointed at the active category listing. */
   shopHref: string;
-  /** Secondary destination. */
-  exploreHref: string;
-  /** Secondary CTA label. */
-  exploreLabel: string;
 }
 
 /**
- * Large premium editorial hero: copy on the left, one dominant product visual
- * on the right. Deliberately a single image rather than a product collage —
- * the page is a brand statement first, a catalogue second.
- *
- * Mobile stacks text over image with full-width CTAs.
+ * About hero: compact editorial brand statement with a single earned visual.
+ * Mirrors the homepage hero's colour field and type lockup, with one clear
+ * primary action pointing at the live catalog.
  */
-export default function Hero({
-  eyebrow,
-  shopHref,
-  exploreHref,
-  exploreLabel,
-}: HeroProps) {
+export default function AboutHero({ shopHref }: AboutHeroProps) {
   return (
     <section
-      aria-labelledby="hero-heading"
+      aria-labelledby="about-hero-heading"
       className="relative overflow-hidden border-b border-beige bg-[linear-gradient(135deg,#faf6ed_0%,#f5eddd_45%,#efe3ca_100%)]"
     >
-      {/* Restrained texture — brand motif only, no imagery */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.10]"
@@ -42,50 +28,40 @@ export default function Hero({
       />
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-8 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_0.9fr] lg:gap-14 lg:px-8 lg:py-14">
-        {/* Copy */}
         <div className="max-w-xl">
           <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.32em] text-earth">
             <span className="h-px w-10 bg-gold" aria-hidden />
-            {eyebrow}
+            About Malmi
           </p>
 
           <h1
-            id="hero-heading"
+            id="about-hero-heading"
             className="mt-5 font-display text-[2.5rem] font-semibold leading-[1.06] tracking-tight text-forest sm:text-5xl lg:text-[3.25rem]"
           >
-            PURE OILS.
+            Rooted in Tradition.
             <br />
-            <span className="text-earth">TRADITIONALLY PRESSED.</span>
+            <span className="text-earth">Made for Everyday Life.</span>
           </h1>
 
           <p className="mt-5 max-w-lg text-base leading-relaxed text-forest/80 sm:text-lg">
-            Thoughtfully selected oils made for everyday cooking, inspired by
-            traditional processing.
+            Malmi Lifestyle brings together thoughtfully selected foods and
+            traditional processing for the everyday Indian kitchen.
           </p>
 
-          <div className="mt-7 flex flex-col gap-3.5 sm:flex-row sm:items-center">
-            <Link
-              href={shopHref}
-              className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-forest px-8 text-[15px] font-semibold text-cream transition-colors hover:bg-forest-soft sm:w-auto"
-            >
-              Shop Wood-Pressed Oils
-              <ChevronRightIcon className="h-4 w-4" />
-            </Link>
-            <Link
-              href={exploreHref}
-              className="inline-flex h-[52px] w-full items-center justify-center rounded-full border border-forest/25 bg-white/70 px-8 text-[15px] font-semibold text-forest transition-colors hover:border-forest hover:bg-white sm:w-auto"
-            >
-              {exploreLabel}
-            </Link>
-          </div>
+          <Link
+            href={shopHref}
+            className="mt-7 inline-flex h-[52px] items-center gap-2 rounded-full bg-forest px-8 text-[15px] font-semibold text-cream transition-colors hover:bg-forest-soft"
+          >
+            Explore Our Products
+            <ChevronRightIcon className="h-4 w-4" />
+          </Link>
         </div>
 
-        {/* Single dominant visual */}
         <div className="relative">
           <div className="relative h-[240px] overflow-hidden rounded-[20px] border border-sand/70 bg-cream-deep/50 shadow-[0_36px_80px_-40px_rgba(21,41,30,0.6)] sm:h-[280px] lg:h-[300px]">
             <Image
-              src="/images/home-hero-oil-collection.png"
-              alt="Malmi wood-pressed oils"
+              src="/images/about-hero-traditional-process.png"
+              alt="Traditional wood-pressing process"
               width={1800}
               height={984}
               unoptimized
@@ -95,10 +71,10 @@ export default function Hero({
             />
           </div>
           <span className="absolute -top-3 -left-3 rounded-full border border-beige bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-forest shadow-[0_8px_20px_-8px_rgba(31,59,44,0.35)] sm:-top-4 sm:-left-5">
-            Wood-Pressed
+            Thoughtfully Selected
           </span>
           <span className="absolute -bottom-3 -right-3 rounded-full border border-beige bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-forest shadow-[0_8px_20px_-8px_rgba(31,59,44,0.35)] sm:-bottom-4 sm:-right-5">
-            Everyday Cooking
+            Traditionally Made
           </span>
         </div>
       </div>

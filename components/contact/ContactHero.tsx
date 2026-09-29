@@ -1,34 +1,16 @@
 import Image from "next/image";
-import Link from "next/link";
-import { ChevronRightIcon } from "@/components/ui/icons";
-
-export interface HeroProps {
-  /** Eyebrow label, derived from the active category. */
-  eyebrow: string;
-  /** Hero destination — the active category listing, e.g. /products/wood-pressed-oils. */
-  shopHref: string;
-  /** Secondary destination. */
-  exploreHref: string;
-  /** Secondary CTA label. */
-  exploreLabel: string;
-}
 
 /**
- * Large premium editorial hero: copy on the left, one dominant product visual
- * on the right. Deliberately a single image rather than a product collage —
- * the page is a brand statement first, a catalogue second.
- *
- * Mobile stacks text over image with full-width CTAs.
+ * Contact hero: compact editorial two-column layout mirroring the Home and
+ * About heroes — copy on the left, a single landscape visual in a rounded
+ * image frame on the right.
  */
-export default function Hero({
-  eyebrow,
-  shopHref,
-  exploreHref,
-  exploreLabel,
-}: HeroProps) {
+const CONTACT_HERO_SRC = "/images/contact-hero.png";
+
+export default function ContactHero() {
   return (
     <section
-      aria-labelledby="hero-heading"
+      aria-labelledby="contact-hero-heading"
       className="relative overflow-hidden border-b border-beige bg-[linear-gradient(135deg,#faf6ed_0%,#f5eddd_45%,#efe3ca_100%)]"
     >
       {/* Restrained texture — brand motif only, no imagery */}
@@ -46,46 +28,30 @@ export default function Hero({
         <div className="max-w-xl">
           <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.32em] text-earth">
             <span className="h-px w-10 bg-gold" aria-hidden />
-            {eyebrow}
+            Get in Touch
           </p>
 
           <h1
-            id="hero-heading"
+            id="contact-hero-heading"
             className="mt-5 font-display text-[2.5rem] font-semibold leading-[1.06] tracking-tight text-forest sm:text-5xl lg:text-[3.25rem]"
           >
-            PURE OILS.
+            We&apos;d Love to
             <br />
-            <span className="text-earth">TRADITIONALLY PRESSED.</span>
+            <span className="text-earth">Hear From You</span>
           </h1>
 
           <p className="mt-5 max-w-lg text-base leading-relaxed text-forest/80 sm:text-lg">
-            Thoughtfully selected oils made for everyday cooking, inspired by
-            traditional processing.
+            Questions about our products, packaging, or your order? Reach the
+            Malmi Lifestyle team — we&apos;re happy to help.
           </p>
-
-          <div className="mt-7 flex flex-col gap-3.5 sm:flex-row sm:items-center">
-            <Link
-              href={shopHref}
-              className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-forest px-8 text-[15px] font-semibold text-cream transition-colors hover:bg-forest-soft sm:w-auto"
-            >
-              Shop Wood-Pressed Oils
-              <ChevronRightIcon className="h-4 w-4" />
-            </Link>
-            <Link
-              href={exploreHref}
-              className="inline-flex h-[52px] w-full items-center justify-center rounded-full border border-forest/25 bg-white/70 px-8 text-[15px] font-semibold text-forest transition-colors hover:border-forest hover:bg-white sm:w-auto"
-            >
-              {exploreLabel}
-            </Link>
-          </div>
         </div>
 
         {/* Single dominant visual */}
         <div className="relative">
           <div className="relative h-[240px] overflow-hidden rounded-[20px] border border-sand/70 bg-cream-deep/50 shadow-[0_36px_80px_-40px_rgba(21,41,30,0.6)] sm:h-[280px] lg:h-[300px]">
             <Image
-              src="/images/home-hero-oil-collection.png"
-              alt="Malmi wood-pressed oils"
+              src={CONTACT_HERO_SRC}
+              alt="Malmi Lifestyle — we're here to help"
               width={1800}
               height={984}
               unoptimized
@@ -95,10 +61,10 @@ export default function Hero({
             />
           </div>
           <span className="absolute -top-3 -left-3 rounded-full border border-beige bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-forest shadow-[0_8px_20px_-8px_rgba(31,59,44,0.35)] sm:-top-4 sm:-left-5">
-            Wood-Pressed
+            We&apos;re Here to Help
           </span>
           <span className="absolute -bottom-3 -right-3 rounded-full border border-beige bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-forest shadow-[0_8px_20px_-8px_rgba(31,59,44,0.35)] sm:-bottom-4 sm:-right-5">
-            Everyday Cooking
+            Get in Touch
           </span>
         </div>
       </div>
