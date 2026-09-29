@@ -36,10 +36,6 @@ interface ProductDocumentLike {
   isActive?: boolean;
 }
 
-interface SampledProductDocument extends Omit<ProductDocumentLike, "variants"> {
-  variants: VariantDocumentLike;
-}
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -221,40 +217,6 @@ export async function getDbProductById(
 
 export async function getDbAllListings(): Promise<ProductListing[]> {
   return toListings(await getDbProducts());
-}
-
-export async function getDbFeaturedListings(limit = 8): Promise<ProductListing[]> {
-  await connectToDatabase();
-  const activeCategorySlugs = await getActiveCategorySlugs();
-  if (activeCategorySlugs.length === 0) return [];
-
-  const docs = await ProductModel.aggregate<SampledProductDocument>([
-    {
-      $match: {
-        isActive: true,
-        $or: [
-          { categorySlug: { $in: activeCategorySlugs } },
-          { category: { $in: activeCategorySlugs } },
-        ],
-      },
-    },
-    { $unwind: "$variants" },
-    { $match: { "variants.isActive": true } },
-    { $sample: { size: limit } },
-  ]);
-
-  return docs.map((doc) => {
-    const product = mapProductDocument({
-      ...doc,
-      variants: [doc.variants],
-    });
-    const variant = product.variants[0];
-    return {
-      listingKey: `${product.id}__${variant.id}`,
-      product,
-      variant,
-    };
-  });
 }
 
 export async function getDbListingsByCategory(

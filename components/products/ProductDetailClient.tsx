@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Breadcrumb from "@/components/products/Breadcrumb";
 import { useCart } from "@/lib/cartContext";
 import { CheckIcon } from "@/components/ui/icons";
@@ -17,6 +17,8 @@ interface Props {
 
 export default function ProductDetailClient({ product, category = null }: Props) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const { addToCart } = useCart();
 
   // Default variant: from ?variant= URL param, or first variant
@@ -30,6 +32,20 @@ export default function ProductDetailClient({ product, category = null }: Props)
   );
   const [quantity, setQuantity] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
+
+  /**
+   * Selecting a size updates the `?variant=` param so the address bar, a
+   * reload, a shared link and the back button all agree with what is on
+   * screen. The variant itself still lives in the product document, so this
+   * only changes which embedded variant is highlighted.
+   */
+  function selectVariant(variantId: string) {
+    setSelectedVariantId(variantId);
+    setQuantity(1);
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("variant", variantId);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
 
   const activeVariant =
     product.variants.find((v) => v.id === selectedVariantId) ??
@@ -128,10 +144,7 @@ export default function ProductDetailClient({ product, category = null }: Props)
                     key={variant.id}
                     type="button"
                     aria-pressed={isSelected}
-                     onClick={() => {
-                       setSelectedVariantId(variant.id);
-                       setQuantity(1);
-                     }}
+                     onClick={() => selectVariant(variant.id)}
                      disabled={(variant.stock ?? 0) <= 0}
                      className={cn(
                       "flex flex-col items-center rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all",

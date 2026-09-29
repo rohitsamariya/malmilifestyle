@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SearchBar from "@/components/products/SearchBar";
@@ -13,8 +13,19 @@ import {
   UserIcon,
 } from "@/components/ui/icons";
 import { useCart } from "@/lib/cartContext";
-import useCatalogCategories from "@/components/layout/useCatalogCategories";
+import useCatalogNavigation from "@/components/layout/useCatalogNavigation";
 import { cn, productsHref } from "@/lib/utils";
+
+/** Static navigation destinations. The catalog itself stays DB-driven. */
+const STATIC_LINKS = [
+  { label: "About Us", href: "/#about" },
+  { label: "Contact", href: "#contact" },
+] as const;
+
+/** "All Oils" for Wood-Pressed Oils, "All Wheat Atta" for a future category. */
+function allLabel(shortName: string, name: string): string {
+  return `All ${shortName || name}`;
+}
 
 function activeFromPath(pathname: string, categories: Array<{ slug: string }>): string {
   if (pathname === "/products" || pathname === "/products/") return "all";
@@ -73,12 +84,14 @@ function IconBtn({
 
 export default function Navbar({ isCustomerSignedIn = false }: { isCustomerSignedIn?: boolean }) {
   const pathname = usePathname();
-  const categories = useCatalogCategories();
+  const categories = useCatalogNavigation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [openMenuSlug, setOpenMenuSlug] = useState<string | null>(null);
   const [navbarHydrated, setNavbarHydrated] = useState(false);
   const { cartCount } = useCart();
+  const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -89,6 +102,33 @@ export default function Navbar({ isCustomerSignedIn = false }: { isCustomerSigne
       active = false;
     };
   }, []);
+
+  // A route change closes both the mega menu and the dropdown. Adjusting this
+  // during render (rather than in an effect) means the menus are already closed
+  // in the same commit as the new page, with no extra render pass.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (lastPathname !== pathname) {
+    setLastPathname(pathname);
+    setOpenMenuSlug(null);
+    setMenuOpen(false);
+  }
+
+  // Clicking anywhere else closes the dropdown.
+  useEffect(() => {
+    if (!openMenuSlug) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!navRef.current?.contains(event.target as Node)) setOpenMenuSlug(null);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenMenuSlug(null);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openMenuSlug]);
 
   if (pathname.startsWith("/admin")) {
     return null;
@@ -136,41 +176,118 @@ export default function Navbar({ isCustomerSignedIn = false }: { isCustomerSigne
             </span>
           </Link>
 
-          {/* Desktop category nav — centred */}
+          {/* Desktop nav — Home, the DB-driven category dropdowns, then static links */}
           <nav
-            aria-label="Categories"
+            ref={navRef}
+            aria-label="Main"
             className="mx-6 hidden flex-1 items-center justify-center gap-0.5 lg:flex xl:mx-10"
           >
             <Link
-              href="/products"
+              href="/"
+              aria-current={pathname === "/" ? "page" : undefined}
               className={cn(
                 "whitespace-nowrap px-3 py-1.5 text-[14px] font-medium text-forest/70 transition-colors hover:text-forest",
-                activeCategory === "all"
+                pathname === "/"
                   ? "border-b-2 border-forest font-semibold text-forest"
                   : "border-b-2 border-transparent",
               )}
-              aria-current={activeCategory === "all" ? "page" : undefined}
             >
-              All Products
+              Home
             </Link>
+
             {categories.map((category) => {
               const isActive = activeCategory === category.slug;
+              const isOpen = openMenuSlug === category.slug;
               return (
-                <Link
+                <div
                   key={category.slug}
-                  href={categoryLink(category.slug)}
-                  className={cn(
-                    "whitespace-nowrap px-3 py-1.5 text-[14px] font-medium text-forest/70 transition-colors hover:text-forest",
-                    isActive
-                      ? "border-b-2 border-forest font-semibold text-forest"
-                      : "border-b-2 border-transparent",
-                  )}
-                  aria-current={isActive ? "page" : undefined}
+                  className="relative"
+                  onMouseEnter={() => setOpenMenuSlug(category.slug)}
+                  onMouseLeave={() => setOpenMenuSlug((current) => (current === category.slug ? null : current))}
                 >
-                  {category.name}
-                </Link>
+                  <div
+                    className={cn(
+                      "flex items-center gap-1 whitespace-nowrap border-b-2 px-3 py-1.5",
+                      isActive
+                        ? "border-forest text-forest"
+                        : "border-transparent text-forest/70",
+                    )}
+                    onFocus={() => setOpenMenuSlug(category.slug)}
+                  >
+                    {/* The category is a real link: clicking the name navigates. */}
+                    <Link
+                      href={categoryLink(category.slug)}
+                      aria-current={isActive ? "page" : undefined}
+                      className={cn(
+                        "text-[14px] font-medium transition-colors hover:text-forest",
+                        isActive ? "font-semibold" : "font-medium",
+                      )}
+                    >
+                      {category.name}
+                    </Link>
+                    {/* A separate control toggles the dropdown for pointer and keyboard users. */}
+                    <button
+                      type="button"
+                      aria-label={`Browse ${category.name}`}
+                      aria-expanded={isOpen}
+                      aria-haspopup="true"
+                      onClick={() => setOpenMenuSlug((current) => (current === category.slug ? null : category.slug))}
+                      className="-mr-1 flex h-5 w-4 items-center justify-center rounded text-forest/60 transition-colors hover:text-forest"
+                    >
+                      <svg
+                        viewBox="0 0 10 6"
+                        aria-hidden="true"
+                        className={cn("h-1.5 w-2.5 transition-transform duration-150", isOpen && "rotate-180")}
+                      >
+                        <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {isOpen && (
+                    <div
+                      className="absolute left-1/2 top-full z-50 w-64 -translate-x-1/2 pt-2"
+                      onMouseEnter={() => setOpenMenuSlug(category.slug)}
+                    >
+                      <div className="overflow-hidden rounded-xl border border-beige bg-white py-1.5 shadow-lg shadow-forest/10">
+                        <Link
+                          href={categoryLink(category.slug)}
+                          onClick={() => setOpenMenuSlug(null)}
+                          className="block px-4 py-2 text-[13px] font-semibold text-forest transition-colors hover:bg-cream"
+                        >
+                          {allLabel(category.shortName, category.name)}
+                        </Link>
+                        <div className="my-1 h-px bg-beige" />
+                        {/* Base products only — variants are chosen on the detail page. */}
+                        {category.products.map((product) => (
+                          <Link
+                            key={product.slug}
+                            href={`/products/${product.slug}`}
+                            onClick={() => setOpenMenuSlug(null)}
+                            className="block px-4 py-2 text-[13px] text-forest/80 transition-colors hover:bg-cream hover:text-forest"
+                          >
+                            {product.name}
+                          </Link>
+                        ))}
+                        {category.products.length === 0 && (
+                          <p className="px-4 py-2 text-[13px] text-earth-lighter">No products available yet.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
+
+            {STATIC_LINKS.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className="whitespace-nowrap border-b-2 border-transparent px-3 py-1.5 text-[14px] font-medium text-forest/70 transition-colors hover:text-forest"
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
 
           {/* Right actions: Search | Profile | Cart — all in the exact same row */}
@@ -221,10 +338,10 @@ export default function Navbar({ isCustomerSignedIn = false }: { isCustomerSigne
           </div>
         </div>
 
-        {/* Mobile category drawer */}
+        {/* Mobile navigation drawer */}
         {menuOpen && (
           <nav
-            aria-label="Categories"
+            aria-label="Main"
             className="border-t border-beige bg-white lg:hidden"
           >
             <div className="px-4 pb-2 pt-3">
@@ -233,43 +350,90 @@ export default function Navbar({ isCustomerSignedIn = false }: { isCustomerSigne
             <ul className="px-2 pb-3">
               <li>
                 <Link
-                  href="/products"
+                  href="/"
                   onClick={() => setMenuOpen(false)}
-                  aria-current={activeCategory === "all" ? "page" : undefined}
+                  aria-current={pathname === "/" ? "page" : undefined}
                   className={cn(
                     "flex items-center justify-between rounded-lg px-3 py-3 text-[15px] font-medium text-forest/85 transition-colors hover:bg-cream",
-                    activeCategory === "all" && "bg-cream font-semibold text-forest",
+                    pathname === "/" && "bg-cream font-semibold text-forest",
                   )}
                 >
-                  All Products
-                  <span className="text-xs text-earth-lighter">All</span>
+                  Home
                 </Link>
               </li>
               {categories.map((category) => {
                 const isActive = activeCategory === category.slug;
+                const isOpen = openMenuSlug === category.slug;
                 return (
-                  <li key={category.slug}>
-                    <Link
-                      href={categoryLink(category.slug)}
-                      onClick={() => setMenuOpen(false)}
-                      aria-current={isActive ? "page" : undefined}
-                      className={cn(
-                        "flex items-center justify-between rounded-lg px-3 py-3 text-[15px] font-medium text-forest/85 transition-colors hover:bg-cream",
-                        isActive && "bg-cream font-semibold text-forest",
-                      )}
-                    >
-                      {category.name}
-                      <span className="text-xs text-earth-lighter">{category.shortName}</span>
-                    </Link>
+                  <li key={category.slug} className="border-b border-beige/60 last:border-0">
+                    <div className="flex items-stretch">
+                      <Link
+                        href={categoryLink(category.slug)}
+                        onClick={() => setMenuOpen(false)}
+                        aria-current={isActive ? "page" : undefined}
+                        className={cn(
+                          "flex flex-1 items-center justify-between rounded-lg px-3 py-3 text-[15px] font-medium text-forest/85 transition-colors hover:bg-cream",
+                          isActive && "bg-cream font-semibold text-forest",
+                        )}
+                      >
+                        {category.name}
+                        <span className="text-xs text-earth-lighter">{category.shortName}</span>
+                      </Link>
+                      <button
+                        type="button"
+                        aria-label={`Browse ${category.name}`}
+                        aria-expanded={isOpen}
+                        onClick={() => setOpenMenuSlug((current) => (current === category.slug ? null : category.slug))}
+                        className="flex w-11 items-center justify-center rounded-lg text-forest/60 transition-colors hover:bg-cream"
+                      >
+                        <svg
+                          viewBox="0 0 10 6"
+                          aria-hidden="true"
+                          className={cn("h-1.5 w-2.5 transition-transform duration-150", isOpen && "rotate-180")}
+                        >
+                          <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </div>
+                    {isOpen && (
+                      <ul className="mb-2 ml-3 border-l border-beige pl-3">
+                        <li>
+                          <Link
+                            href={categoryLink(category.slug)}
+                            onClick={() => setMenuOpen(false)}
+                            className="block rounded-lg px-3 py-2 text-[14px] font-semibold text-forest transition-colors hover:bg-cream"
+                          >
+                            {allLabel(category.shortName, category.name)}
+                          </Link>
+                        </li>
+                        {category.products.map((product) => (
+                          <li key={product.slug}>
+                            <Link
+                              href={`/products/${product.slug}`}
+                              onClick={() => setMenuOpen(false)}
+                              className="block rounded-lg px-3 py-2 text-[14px] text-forest/80 transition-colors hover:bg-cream hover:text-forest"
+                            >
+                              {product.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </li>
                 );
               })}
+              {STATIC_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center justify-between rounded-lg px-3 py-3 text-[15px] font-medium text-forest/85 transition-colors hover:bg-cream"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
-            <div className="border-t border-beige px-4 py-3">
-              <p className="text-xs leading-relaxed text-earth-light">
-                Wood-pressed oils, stone-ground atta &amp; traditional flours.
-              </p>
-            </div>
           </nav>
         )}
       </header>

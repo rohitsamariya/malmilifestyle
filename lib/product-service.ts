@@ -162,6 +162,42 @@ export async function updateProduct(id: string, value: unknown) {
     }
   }
 
+  /**
+   * A variant is removed by submitting a `variants` array that no longer
+   * contains it. Orders snapshot `variantId`, so a variant that appears in any
+   * order is historical data and must not be removed — the admin is told to
+   * deactivate it instead. This is checked here, in the service, so no caller
+   * can bypass it.
+   */
+  const nextVariantIds = new Set(
+    (parsed.variants as Array<{ variantId?: string }>).map(
+      (variant: { variantId?: string }) => variant.variantId,
+    ),
+  );
+  const existingVariants = (existing.variants ?? []) as Array<{ variantId?: string }>;
+  const removedVariantIds = existingVariants
+    .map((variant: { variantId?: string }) => variant.variantId)
+    .filter((variantId: string | undefined): variantId is string =>
+      Boolean(variantId) && !nextVariantIds.has(variantId),
+    );
+
+  if (removedVariantIds.length > 0) {
+    const OrderModel = (await import("@/models/Order")).default;
+    const referenced = (await OrderModel.distinct("items.variantId", {
+      "items.variantId": { $in: removedVariantIds },
+    })) as string[];
+    const blocked = removedVariantIds.filter((variantId) => referenced.includes(variantId));
+    if (blocked.length > 0) {
+      throw new CatalogRequestError(
+        blocked.length === 1
+          ? "This size is referenced by existing orders and cannot be deleted. Deactivate it instead."
+          : "Some sizes are referenced by existing orders and cannot be deleted. Deactivate them instead.",
+        409,
+        blocked,
+      );
+    }
+  }
+
   const product = await ProductModel.findOneAndUpdate(
     { _id: existing._id },
     { $set: productFields(parsed, category) },

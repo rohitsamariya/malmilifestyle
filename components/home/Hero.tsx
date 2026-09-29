@@ -2,19 +2,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { productsHref } from "@/lib/utils";
-
-const STATS: Array<[string, string]> = [
-  ["7", "wood-pressed oils"],
-  ["12", "stone-ground flours"],
-  ["19", "products"],
-];
+import type { CatalogStat } from "@/data/db-catalog-stats";
 
 /**
  * Large premium split hero: strong editorial copy on the left, large Malmi
  * visual placeholder on the right (swap `/images/hero-visual.svg` for final
  * product photography when available).
+ *
+ * `stats` is passed in from the database by `HomePage` so the numbers always
+ * match the catalog that is actually live.
  */
-export default function Hero() {
+export default function Hero({ stats }: { stats: CatalogStat[] }) {
   return (
     <section className="relative overflow-hidden border-b border-beige bg-[linear-gradient(135deg,#f3ecdd_0%,#efe4cc_45%,#eadfc4_70%,#e3d5b8_100%)]">
       <div
@@ -60,18 +58,20 @@ export default function Hero() {
             </Link>
           </div>
 
-          <ul className="mt-11 flex max-w-md flex-wrap gap-x-10 gap-y-5" aria-label="Highlights">
-            {STATS.map(([stat, label]) => (
-              <li key={label} className="flex items-baseline gap-2.5">
-                <span className="font-display text-4xl font-semibold text-forest lg:text-[2.75rem]">
-                  {stat}
-                </span>
-                <span className="text-xs font-medium uppercase tracking-[0.18em] text-earth">
-                  {label}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {stats.length > 0 ? (
+            <ul className="mt-11 flex max-w-md flex-wrap gap-x-10 gap-y-5" aria-label="Highlights">
+              {stats.map((stat) => (
+                <li key={stat.label} className="flex items-baseline gap-2.5">
+                  <span className="font-display text-4xl font-semibold text-forest lg:text-[2.75rem]">
+                    {stat.value}
+                  </span>
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-earth">
+                    {stat.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         {/* Visual */}

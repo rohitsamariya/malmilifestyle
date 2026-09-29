@@ -4,6 +4,11 @@ import CategoryModel from "@/models/Category";
 import ProductModel from "@/models/Product";
 import { requireAdminSession } from "@/lib/adminApiAuth";
 import { parseCategoryInput } from "@/lib/catalog-validation";
+import {
+  catalogAdminErrorResponse,
+  deleteCategories,
+  setCategoriesActive,
+} from "@/lib/catalog-admin-service";
 
 function categoryFilter(id: string) {
   return { $or: [{ categoryId: id }, { slug: id }] };
@@ -94,6 +99,13 @@ export async function PATCH(
   }
 }
 
+/**
+ * Without `?hardDelete=true` the category is deactivated. With it, the category
+ * is permanently removed together with its products — unless any of those
+ * products is referenced by a historical order, in which case the request is
+ * refused with 409 and the reason. Both paths share the validated code in
+ * `lib/catalog-admin-service` with the bulk endpoint.
+ */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -101,35 +113,55 @@ export async function DELETE(
   const authError = await requireAdminSession();
   if (authError) return authError;
 
+  const hardDelete = new URL(request.url).searchParams.get("hardDelete") === "true";
+
   try {
     const { id } = await params;
-    const hardDelete = new URL(request.url).searchParams.get("hardDelete") === "true";
-    await connectToDatabase();
-    const category = await CategoryModel.findOne(categoryFilter(id));
-    if (!category) {
+
+    if (!hardDelete) {
+      const deactivated = await setCategoriesActive([id], false);
+      const item = deactivated.items[0];
+      if (item?.outcome === "not-found") {
+        return NextResponse.json({ error: "Category not found." }, { status: 404 });
+      }
+      return NextResponse.json({
+        hardDeleted: false,
+        deleted: false,
+        deactivated: true,
+        result: deactivated,
+        message: "Category deactivated successfully.",
+      });
+    }
+
+    const result = await deleteCategories([id]);
+    const item = result.items[0];
+
+    if (item?.outcome === "not-found") {
       return NextResponse.json({ error: "Category not found." }, { status: 404 });
     }
-
-    const productCount = await ProductModel.countDocuments({
-      $or: [{ categoryId: category.categoryId }, { categorySlug: category.slug }, { category: category.slug }],
-    });
-    if (hardDelete && productCount === 0) {
-      await CategoryModel.deleteOne({ _id: category._id });
-      return NextResponse.json({ hardDeleted: true, deactivated: false });
+    if (item?.outcome === "blocked") {
+      return NextResponse.json(
+        {
+          error: item.reason,
+          hardDeleted: false,
+          deleted: false,
+          deactivated: false,
+          blocked: true,
+          result,
+          message: item.reason,
+        },
+        { status: 409 },
+      );
     }
-
-    category.isActive = false;
-    await category.save();
     return NextResponse.json({
-      hardDeleted: false,
-      deactivated: true,
-      productCount,
-      message: productCount > 0
-        ? "Category has products and was deactivated instead of deleted."
-        : "Category deactivated successfully.",
+      hardDeleted: true,
+      deleted: true,
+      deactivated: false,
+      result,
+      message: "Category permanently deleted.",
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete category.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const response = catalogAdminErrorResponse(error);
+    return NextResponse.json(response.body, { status: response.status });
   }
 }

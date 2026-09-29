@@ -1,9 +1,14 @@
 import Link from "next/link";
-import { getDbFeaturedListings } from "@/data/db-products";
 import ProductCarousel from "@/components/home/ProductCarousel";
+import type { ProductListing } from "@/data/types";
 
-export default async function FeaturedProducts() {
-  const listings = await getDbFeaturedListings(8);
+/**
+ * Receives its listings from `HomePage`, which splits the single active
+ * catalog read into this section and "Explore More" — the two can never show
+ * the same product. Renders nothing when the catalog is empty.
+ */
+export default async function FeaturedProducts({ listings }: { listings: ProductListing[] }) {
+  if (listings.length === 0) return null;
 
   return (
     <section

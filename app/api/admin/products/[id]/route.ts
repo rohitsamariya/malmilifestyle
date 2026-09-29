@@ -3,7 +3,12 @@ import connectToDatabase from "@/lib/db";
 import { mapProductDocument } from "@/data/db-products";
 import ProductModel from "@/models/Product";
 import { requireAdminSession } from "@/lib/adminApiAuth";
-import { deleteProductVariantAssets, errorResponse, updateProduct } from "@/lib/product-service";
+import { errorResponse, updateProduct } from "@/lib/product-service";
+import {
+  catalogAdminErrorResponse,
+  deleteProducts,
+  setProductsActive,
+} from "@/lib/catalog-admin-service";
 
 export async function GET(
   _request: Request,
@@ -45,6 +50,13 @@ export async function PATCH(
   }
 }
 
+/**
+ * Without `?hardDelete=true` the product is deactivated. With it, the product
+ * is permanently removed — unless an order references it, in which case the
+ * request is refused with 409 and the reason, so the admin can deactivate it
+ * instead. Both paths run through `lib/catalog-admin-service`, the same
+ * validated code the bulk endpoint uses.
+ */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -52,37 +64,55 @@ export async function DELETE(
   const authError = await requireAdminSession();
   if (authError) return authError;
 
+  const hardDelete = new URL(request.url).searchParams.get("hardDelete") === "true";
+
   try {
     const { id } = await params;
-    const hardDelete = new URL(request.url).searchParams.get("hardDelete") === "true";
-    await connectToDatabase();
-    const product = await ProductModel.findOne({
-      $or: [{ productId: id }, { slug: id }],
-    });
-    if (!product) {
+
+    if (!hardDelete) {
+      const deactivated = await setProductsActive([id], false);
+      const item = deactivated.items[0];
+      if (item?.outcome === "not-found") {
+        return NextResponse.json({ error: "Product not found." }, { status: 404 });
+      }
+      return NextResponse.json({
+        hardDeleted: false,
+        deleted: false,
+        deactivated: true,
+        result: deactivated,
+        message: "Product deactivated successfully.",
+      });
+    }
+
+    const result = await deleteProducts([id]);
+    const item = result.items[0];
+
+    if (item?.outcome === "not-found") {
       return NextResponse.json({ error: "Product not found." }, { status: 404 });
     }
-
-    const OrderModel = (await import("@/models/Order")).default;
-    const orderCount = await OrderModel.countDocuments({ "items.productId": product.productId });
-    if (hardDelete && orderCount === 0) {
-      await ProductModel.deleteOne({ _id: product._id });
-      await deleteProductVariantAssets(product.variants || []);
-      return NextResponse.json({ hardDeleted: true, deactivated: false });
+    if (item?.outcome === "blocked") {
+      return NextResponse.json(
+        {
+          error: item.reason,
+          hardDeleted: false,
+          deleted: false,
+          deactivated: false,
+          blocked: true,
+          result,
+          message: item.reason,
+        },
+        { status: 409 },
+      );
     }
-
-    product.isActive = false;
-    await product.save();
     return NextResponse.json({
-      hardDeleted: false,
-      deactivated: true,
-      hasOrders: orderCount > 0,
-      message: orderCount > 0
-        ? "Product has historical orders and was deactivated instead of deleted."
-        : "Product deactivated successfully.",
+      hardDeleted: true,
+      deleted: true,
+      deactivated: false,
+      result,
+      message: "Product permanently deleted.",
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete product.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const response = catalogAdminErrorResponse(error);
+    return NextResponse.json(response.body, { status: response.status });
   }
 }

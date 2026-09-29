@@ -10,9 +10,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npm run test:orders && npm run test:customers",
+    "test": "npm run test:orders && npm run test:customers && npm run test:catalog",
     "test:orders": "tsx --test tests/order-rules.test.ts",
     "test:customers": "tsx --test tests/customer-auth.test.ts tests/customer-origin.test.ts tests/customer-orders.test.ts",
+    "test:catalog": "tsx --test tests/catalog-admin.test.ts",
     "migrate:live": "tsx scripts/migrateToLive.ts"
   },
   "dependencies": {

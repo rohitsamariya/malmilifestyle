@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/utils";
+import CatalogBulkBar from "@/components/admin/CatalogBulkBar";
+import { useCatalogBulkAction } from "@/components/admin/useCatalogBulkAction";
 
 interface AdminVariant {
   variantId: string;
@@ -720,6 +722,12 @@ export default function AdminProductsClient() {
   const activeCount = products.filter((product) => product.isActive).length;
   const inactiveCount = products.length - activeCount;
 
+  const bulk = useCatalogBulkAction(
+    "/api/admin/products/bulk",
+    fetchProducts,
+    (id) => products.find((product) => product.productId === id)?.name || id,
+  );
+
   return (
     <div className="space-y-6">
       {toast ? (
@@ -772,6 +780,19 @@ export default function AdminProductsClient() {
         </select>
       </div>
       {fetchError ? <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{fetchError}</div> : null}
+      <CatalogBulkBar
+        selectedCount={bulk.selected.length}
+        totalCount={products.length}
+        busy={bulk.busy}
+        error={bulk.error}
+        result={bulk.result}
+        selectionSummary={bulk.describeSelection}
+        noun="product"
+        onSelectAll={() => bulk.selectMany(products.map((product) => product.productId))}
+        onClear={bulk.clearSelection}
+        onRun={(action) => void bulk.run(action)}
+        onDismissResult={bulk.dismissResult}
+      />
       <div className="overflow-hidden rounded-2xl border border-beige bg-white shadow-sm">
         {loading ? (
           <div className="py-16 text-center text-sm text-earth">Loading products…</div>
@@ -782,6 +803,9 @@ export default function AdminProductsClient() {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-beige bg-cream text-[10px] font-bold uppercase tracking-wider text-earth">
                 <tr>
+                  <th className="w-10 px-3 py-3.5">
+                    <span className="sr-only">Select</span>
+                  </th>
                   <th className="px-5 py-3.5">Product</th>
                   <th className="px-5 py-3.5">Category</th>
                   <th className="px-5 py-3.5 text-center">Variants</th>
@@ -799,7 +823,16 @@ export default function AdminProductsClient() {
                   const category = categories.find((item) => item.slug === product.category);
                   const image = product.variants.find((variant) => variant.isActive)?.image || product.variants[0]?.image;
                   return (
-                    <tr key={product.productId} className="hover:bg-cream/30">
+                    <tr key={product.productId} className={bulk.isSelected(product.productId) ? "bg-cream" : "hover:bg-cream/30"}>
+                      <td className="px-3 py-4">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={bulk.isSelected(product.productId)}
+                          onChange={() => bulk.toggle(product.productId)}
+                          aria-label={`Select ${product.name}`}
+                        />
+                      </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-beige bg-cream-deep">

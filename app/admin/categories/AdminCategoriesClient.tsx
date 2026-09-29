@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import CatalogBulkBar from "@/components/admin/CatalogBulkBar";
+import { useCatalogBulkAction } from "@/components/admin/useCatalogBulkAction";
 
 interface AdminCategory {
   categoryId: string;
@@ -53,6 +55,7 @@ export default function AdminCategoriesClient() {
   const [form, setForm] = useState<CategoryForm | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
@@ -137,19 +140,31 @@ export default function AdminCategoriesClient() {
   }
 
   async function remove(category: AdminCategory) {
-    if (!window.confirm(`Remove ${category.name}?`)) return;
+    const ok = window.confirm(
+      `Permanently delete ${category.name}?\n\n` +
+        "This removes the category and any products inside it that no order references. " +
+        "If a product is part of existing orders the category is kept and reported instead.",
+    );
+    if (!ok) return;
     setError(null);
     try {
-      const response = await fetch(`/api/admin/categories/${category.categoryId}`, {
+      const response = await fetch(`/api/admin/categories/${category.categoryId}?hardDelete=true`, {
         method: "DELETE",
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to remove category.");
+      setNotice(data.message || "Category permanently deleted.");
       await fetchCategories();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to remove category.");
     }
   }
+
+  const bulk = useCatalogBulkAction(
+    "/api/admin/categories/bulk",
+    fetchCategories,
+    (id) => categories.find((category) => category.categoryId === id)?.name || id,
+  );
 
   return (
     <div className="space-y-6">
@@ -177,6 +192,26 @@ export default function AdminCategoriesClient() {
         </div>
       )}
 
+      {notice && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-800">
+          {notice}
+        </div>
+      )}
+
+      <CatalogBulkBar
+        selectedCount={bulk.selected.length}
+        totalCount={categories.length}
+        busy={bulk.busy}
+        error={bulk.error}
+        result={bulk.result}
+        selectionSummary={bulk.describeSelection}
+        noun="category"
+        onSelectAll={() => bulk.selectMany(categories.map((category) => category.categoryId))}
+        onClear={bulk.clearSelection}
+        onRun={(action) => void bulk.run(action)}
+        onDismissResult={bulk.dismissResult}
+      />
+
       <div className="overflow-hidden rounded-2xl border border-beige bg-white shadow-sm">
         {loading ? (
           <div className="py-16 text-center text-sm text-earth">Loading categories…</div>
@@ -187,6 +222,9 @@ export default function AdminCategoriesClient() {
             <table className="w-full text-left text-xs text-forest">
               <thead className="border-b border-beige bg-cream text-[10px] font-bold uppercase tracking-wider text-earth">
                 <tr>
+                  <th className="w-10 px-3 py-3.5">
+                    <span className="sr-only">Select</span>
+                  </th>
                   <th className="px-5 py-3.5">Category</th>
                   <th className="px-5 py-3.5">Slug</th>
                   <th className="px-5 py-3.5">Description</th>
@@ -197,7 +235,16 @@ export default function AdminCategoriesClient() {
               </thead>
               <tbody className="divide-y divide-beige/60">
                 {categories.map((category) => (
-                  <tr key={category.categoryId}>
+                  <tr key={category.categoryId} className={bulk.isSelected(category.categoryId) ? "bg-cream" : undefined}>
+                    <td className="px-3 py-4">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={bulk.isSelected(category.categoryId)}
+                        onChange={() => bulk.toggle(category.categoryId)}
+                        aria-label={`Select ${category.name}`}
+                      />
+                    </td>
                     <td className="px-5 py-4 font-bold">{category.name}</td>
                     <td className="px-5 py-4 font-mono text-[11px] text-earth-light">{category.slug}</td>
                     <td className="max-w-xs truncate px-5 py-4 text-earth">{category.description}</td>
@@ -236,7 +283,7 @@ export default function AdminCategoriesClient() {
                           onClick={() => void remove(category)}
                           className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-100"
                         >
-                          Remove
+                          Delete
                         </button>
                       </div>
                     </td>

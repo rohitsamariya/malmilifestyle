@@ -1,9 +1,14 @@
 import Link from "next/link";
-import { getDbAllListings } from "@/data/db-products";
 import ProductCarousel from "@/components/home/ProductCarousel";
+import type { ProductListing } from "@/data/types";
 
-export default async function ExploreMore() {
-  const listings = (await getDbAllListings()).slice(8);
+/**
+ * Renders the remainder of the active catalog — everything not already shown
+ * in "Featured Products". Renders nothing when there is nothing left over, so
+ * a single-category catalog does not get an empty section.
+ */
+export default async function ExploreMore({ listings }: { listings: ProductListing[] }) {
+  if (listings.length === 0) return null;
 
   return (
     <section
