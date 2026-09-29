@@ -6,7 +6,8 @@ import {
   unexpectedErrorResponse,
   validationErrorResponse,
 } from "@/lib/customer-api-responses";
-import { createCustomerSession, isSameOriginRequest } from "@/lib/customerAuth";
+import { createCustomerSession } from "@/lib/customerAuth";
+import { isSameOriginRequest } from "@/lib/customer-origin";
 import { INVALID_CREDENTIALS_MESSAGE, authenticateCustomer } from "@/lib/customer-service";
 import { CustomerValidationError } from "@/lib/customer-validation";
 import { safeRedirectOr } from "@/lib/redirects";

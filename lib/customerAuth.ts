@@ -146,17 +146,8 @@ export async function clearCustomerSession(): Promise<void> {
 }
 
 /**
- * Rejects state-changing requests initiated from another origin.
- * Requests without an `Origin` header (server-to-server, curl) are allowed
- * through; the session cookie is SameSite=Lax, which already blocks the
- * browser-driven cross-site POST vector.
+ * Trusted-origin (CSRF) validation lives in `@/lib/customer-origin` so that
+ * register, login, logout and order creation all share one implementation.
+ * It is re-exported here for callers that already import this module.
  */
-export function isSameOriginRequest(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    return new URL(origin).host === new URL(request.url).host;
-  } catch {
-    return false;
-  }
-}
+export { isSameOriginRequest } from "@/lib/customer-origin";

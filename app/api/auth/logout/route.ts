@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { invalidOriginResponse } from "@/lib/customer-api-responses";
-import { clearCustomerSession, isSameOriginRequest } from "@/lib/customerAuth";
+import { clearCustomerSession } from "@/lib/customerAuth";
+import { isSameOriginRequest } from "@/lib/customer-origin";
 
 /**
  * Signs the customer out by expiring the cookie.
