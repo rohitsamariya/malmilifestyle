@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test from "node:test";
 import { codSettlementOnDelivery } from "@/lib/payments/cod";
+import { verifyRazorpayCheckoutSignature } from "@/lib/payments/razorpay";
 import {
   canCancelOrder,
   nextFulfillmentStatus,
   OrderServiceError,
   parseCreateOrderInput,
+  parseVerifyPaymentInput,
   shouldRestoreOrderStock,
   stockDeductionFilter,
   validateCatalogSelection,
@@ -66,10 +69,17 @@ test("accepts COD and only returns customer-entered fields and catalog identifie
   assert.equal("total" in input, false);
 });
 
-test("rejects online payment, invalid product lookup, and missing variants", () => {
-  assertServiceError(() => parseCreateOrderInput({ ...validRequest, paymentMethod: "RAZORPAY" }), 400);
+test("rejects invalid product lookup and missing variants", () => {
   assertServiceError(() => validateCatalogSelection(null, null, "variant-1", 1), 404);
   assertServiceError(() => validateCatalogSelection(product, { isActive: true }, "missing", 1), 404);
+});
+
+test("accepts COD and Razorpay and rejects any other payment method", () => {
+  assert.equal(parseCreateOrderInput({ ...validRequest, paymentMethod: "COD" }).paymentMethod, "COD");
+  assert.equal(parseCreateOrderInput({ ...validRequest, paymentMethod: "RAZORPAY" }).paymentMethod, "RAZORPAY");
+  assertServiceError(() => parseCreateOrderInput({ ...validRequest, paymentMethod: "UPI" }), 400);
+  assertServiceError(() => parseCreateOrderInput({ ...validRequest, paymentMethod: "card" }), 400);
+  assertServiceError(() => parseCreateOrderInput({ ...validRequest, paymentMethod: "" }), 400);
 });
 
 test("rejects inactive products, inactive categories, and inactive variants", () => {
@@ -162,4 +172,57 @@ test("an unsettled COD order that already has a timestamp keeps it", () => {
     status: "PAID",
     paidAt: earlier,
   });
+});
+
+// ── Razorpay Checkout handoff verification ────────────────────────────────
+
+const CHECKOUT_SECRET = "test-checkout-key-secret";
+
+function checkoutSignature(orderId: string, paymentId: string, secret = CHECKOUT_SECRET) {
+  return createHmac("sha256", secret).update(`${orderId}|${paymentId}`, "utf8").digest("hex");
+}
+
+test("a checkout handoff signature is verified against the key secret", () => {
+  const orderId = "order_TEST0000000001";
+  const paymentId = "pay_TEST0000000001";
+  const signature = checkoutSignature(orderId, paymentId);
+
+  assert.equal(verifyRazorpayCheckoutSignature({ orderId, paymentId, signature }, CHECKOUT_SECRET), true);
+  // Signature computed for a different payment must not verify.
+  assert.equal(
+    verifyRazorpayCheckoutSignature({ orderId, paymentId, signature: checkoutSignature(orderId, "pay_OTHER0000001") }, CHECKOUT_SECRET),
+    false,
+  );
+  // Wrong secret, missing pieces and non-hex values are all refused.
+  assert.equal(verifyRazorpayCheckoutSignature({ orderId, paymentId, signature }, "wrong-secret"), false);
+  assert.equal(verifyRazorpayCheckoutSignature({ orderId, paymentId, signature: "" }, CHECKOUT_SECRET), false);
+  assert.equal(verifyRazorpayCheckoutSignature({ orderId, paymentId, signature: "not-hex" }, CHECKOUT_SECRET), false);
+  assert.equal(verifyRazorpayCheckoutSignature({ orderId: "", paymentId, signature }, CHECKOUT_SECRET), false);
+  assert.equal(verifyRazorpayCheckoutSignature({ orderId, paymentId, signature: null }, CHECKOUT_SECRET), false);
+});
+
+test("payment confirmation input requires well-formed references", () => {
+  const parsed = parseVerifyPaymentInput({
+    razorpay_order_id: "order_ABC123",
+    razorpay_payment_id: "pay_XYZ789",
+    razorpay_signature: "deadbeef",
+  });
+  assert.deepEqual(parsed, {
+    razorpayOrderId: "order_ABC123",
+    razorpayPaymentId: "pay_XYZ789",
+    razorpaySignature: "deadbeef",
+  });
+
+  // camelCase is tolerated too.
+  assert.equal(
+    parseVerifyPaymentInput({ razorpayOrderId: "order_ABC123", razorpayPaymentId: "pay_XYZ789", razorpaySignature: "00ff" })
+      .razorpayOrderId,
+    "order_ABC123",
+  );
+
+  assertServiceError(() => parseVerifyPaymentInput({ razorpay_order_id: "nope", razorpay_payment_id: "pay_XYZ789", razorpay_signature: "deadbeef" }), 400);
+  assertServiceError(() => parseVerifyPaymentInput({ razorpay_order_id: "order_ABC123", razorpay_payment_id: "nope", razorpay_signature: "deadbeef" }), 400);
+  assertServiceError(() => parseVerifyPaymentInput({ razorpay_order_id: "order_ABC123", razorpay_payment_id: "pay_XYZ789", razorpay_signature: "zzzz" }), 400);
+  assertServiceError(() => parseVerifyPaymentInput({ razorpay_order_id: "order_ABC123" }), 400);
+  assertServiceError(() => parseVerifyPaymentInput(null), 400);
 });

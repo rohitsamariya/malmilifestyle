@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   createCodOrder,
+  createOnlineOrder,
   getOrderForCustomer,
   listOrdersForCustomer,
   OrderServiceError,
@@ -8,6 +9,15 @@ import {
 import { authenticateRequest } from "@/lib/customerAuth";
 import { invalidOriginResponse } from "@/lib/customer-api-responses";
 import { isSameOriginRequest } from "@/lib/customer-origin";
+
+/** Only a literal `paymentMethod: "RAZORPAY"` selects the online flow; COD is the default. */
+function isRazorpayRequest(body: unknown): boolean {
+  return (
+    typeof body === "object"
+    && body !== null
+    && (body as { paymentMethod?: unknown }).paymentMethod === "RAZORPAY"
+  );
+}
 
 /** Customer session required. No anonymous order placement, no anonymous history. */
 export async function GET(request: Request) {
@@ -42,6 +52,14 @@ export async function POST(request: Request) {
 
   try {
     // customerId comes from the verified session only — never from the body.
+    if (isRazorpayRequest(body)) {
+      // Creates the order + stock reservation, then the Razorpay gateway order.
+      // The client uses the returned checkout handoff to open Razorpay Checkout.
+      const { order, checkout } = await createOnlineOrder(body, customer.id);
+      const confirmation = await getOrderForCustomer(order.orderId, customer.id);
+      return NextResponse.json({ order: confirmation, checkout }, { status: 201 });
+    }
+
     const order = await createCodOrder(body, customer.id);
     const confirmation = await getOrderForCustomer(order.orderId, customer.id);
     return NextResponse.json({ order: confirmation }, { status: 201 });

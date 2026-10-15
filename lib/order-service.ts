@@ -2,6 +2,19 @@ import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 import connectToDatabase from "@/lib/db";
 import { codSettlementOnDelivery, createCodPayment } from "@/lib/payments/cod";
+import {
+  getRazorpayKeyId,
+  getRazorpayKeySecret,
+  verifyRazorpayCheckoutSignature,
+} from "@/lib/payments/razorpay";
+import {
+  RazorpayApiError,
+  createRazorpayOrder,
+  fetchRazorpayPayment,
+} from "@/lib/payments/razorpay-api";
+import { createRazorpayPayment } from "@/lib/payments/razorpay-payment";
+import { applyRazorpayCapturedPayment } from "@/lib/payments/razorpay-webhook";
+import type { PaymentRecord } from "@/lib/payments/types";
 import { calculateManualShipping, createManualShipment } from "@/lib/shipping/manual";
 import CategoryModel from "@/models/Category";
 import OrderModel, { type IOrder, type IOrderAddress } from "@/models/Order";
@@ -26,7 +39,7 @@ interface RequestedItem {
 
 interface CreateOrderInput {
   idempotencyKey: string;
-  paymentMethod: "COD";
+  paymentMethod: "COD" | "RAZORPAY";
   items: RequestedItem[];
   shippingAddress: IOrderAddress;
 }
@@ -164,8 +177,8 @@ export function parseCreateOrderInput(value: unknown): CreateOrderInput {
   if (!isRecord(value)) {
     throw new OrderServiceError("Invalid order request.", 400);
   }
-  if (value.paymentMethod !== "COD") {
-    throw new OrderServiceError("Cash on Delivery is the only available payment method.", 400);
+  if (value.paymentMethod !== "COD" && value.paymentMethod !== "RAZORPAY") {
+    throw new OrderServiceError("Choose a valid payment method.", 400);
   }
   if (typeof value.idempotencyKey !== "string" || !/^[A-Za-z0-9_-]{12,100}$/.test(value.idempotencyKey)) {
     throw new OrderServiceError("Invalid checkout request. Please retry checkout.", 400);
@@ -196,20 +209,95 @@ export function parseCreateOrderInput(value: unknown): CreateOrderInput {
 
   return {
     idempotencyKey: value.idempotencyKey,
-    paymentMethod: "COD",
+    paymentMethod: value.paymentMethod,
     items: Array.from(quantities.values()),
     shippingAddress: parseShippingAddress(value.shippingAddress),
   };
 }
 
+/** Cash on Delivery entry point. Rejects any other payment method. */
 export async function createCodOrder(
   rawInput: unknown,
   customerId: mongoose.Types.ObjectId | string,
 ): Promise<IOrder> {
+  const input = parseCreateOrderInput(rawInput);
+  if (input.paymentMethod !== "COD") {
+    throw new OrderServiceError("Cash on Delivery was not selected.", 400);
+  }
+  const order = await createOrderForCustomer(input, customerId, createCodPayment);
+  return assertPaymentMethod(order, "COD");
+}
+
+export interface OnlineCheckout {
+  orderId: string;
+  razorpayOrderId: string;
+  /** Public key id — safe to hand to the browser. Never the secret. */
+  keyId: string;
+  /** Amount in paise, as sent to the gateway. */
+  amount: number;
+  currency: string;
+}
+
+export interface CreateOnlineOrderResult {
+  order: IOrder;
+  checkout: OnlineCheckout;
+}
+
+/**
+ * Online (Razorpay) entry point.
+ *
+ * The order and its stock reservation are created first, in the same
+ * transactional path as COD, so a payment can never be attempted for an order
+ * that does not exist. The gateway order is then created and stored, and the
+ * client is only handed the reference once it is durably persisted. Replaying
+ * the idempotency key returns the same order and never creates a second gateway
+ * order.
+ */
+export async function createOnlineOrder(
+  rawInput: unknown,
+  customerId: mongoose.Types.ObjectId | string,
+): Promise<CreateOnlineOrderResult> {
+  const input = parseCreateOrderInput(rawInput);
+  if (input.paymentMethod !== "RAZORPAY") {
+    throw new OrderServiceError("Online payment was not selected.", 400);
+  }
+  const order = await createOrderForCustomer(input, customerId, createRazorpayPayment);
+  assertPaymentMethod(order, "RAZORPAY");
+  const checkout = await ensureRazorpayGatewayOrder(order);
+  return { order, checkout };
+}
+
+/**
+ * Guards the idempotent-replay path: a checkout key is bound to the payment
+ * method it was first used with. Reusing the same key with a *different* method
+ * must never silently return the original order, and must never let an online
+ * attempt attach a gateway order to an existing COD order (the customer could
+ * then be charged for an order that never settles, because the webhook and the
+ * handoff verification both refuse non-online orders).
+ */
+function assertPaymentMethod(order: IOrder, expected: "COD" | "RAZORPAY"): IOrder {
+  if (order.payment?.method !== expected) {
+    throw new OrderServiceError(
+      "This checkout was already started with a different payment method. Please start a new checkout.",
+      409,
+    );
+  }
+  return order;
+}
+
+/**
+ * The single order-creation path shared by both payment methods. Only the
+ * starting payment record differs; validation, pricing, stock deduction and
+ * per-customer idempotency are identical.
+ */
+async function createOrderForCustomer(
+  input: CreateOrderInput,
+  customerId: mongoose.Types.ObjectId | string,
+  buildPayment: () => PaymentRecord,
+): Promise<IOrder> {
   if (!customerId) {
     throw new OrderServiceError("You must be signed in to place an order.", 401);
   }
-  const input = parseCreateOrderInput(rawInput);
   await connectToDatabase();
   const session = await mongoose.startSession();
   let result: IOrder | null = null;
@@ -298,7 +386,7 @@ export async function createCodOrder(
           shippingFee,
           discountAmount,
           totalAmount: subtotal + shippingFee - discountAmount,
-          payment: createCodPayment(),
+          payment: buildPayment(),
           paymentStatus: "PENDING",
           shipment: createManualShipment(),
           orderStatus: "PLACED",
@@ -323,6 +411,210 @@ export async function createCodOrder(
 
   if (!result) throw new Error("Order transaction completed without an order.");
   return result;
+}
+
+/**
+ * Creates (or reuses) the Razorpay gateway order for a stored order and returns
+ * the browser-safe checkout handoff. The gateway order id is persisted before it
+ * is ever returned, so a webhook can always resolve the order from it. Only the
+ * public key id is handed out — never the key secret.
+ */
+async function ensureRazorpayGatewayOrder(order: IOrder): Promise<OnlineCheckout> {
+  const amount = Math.round(Number(order.totalAmount) * 100);
+  const currency = order.payment?.currency || "INR";
+
+  let keyId: string;
+  try {
+    keyId = getRazorpayKeyId();
+    // Both credentials are needed to reach the gateway. Resolving the secret
+    // here turns a half-configured deployment into the same clear, secret-free
+    // "not available" error instead of a generic upstream failure.
+    getRazorpayKeySecret();
+  } catch {
+    throw new OrderServiceError("Online payment is not available right now.", 503);
+  }
+
+  if (order.payment?.gatewayOrderId) {
+    return {
+      orderId: order.orderId,
+      razorpayOrderId: order.payment.gatewayOrderId,
+      keyId,
+      amount,
+      currency,
+    };
+  }
+
+  let gatewayOrderId: string;
+  try {
+    const gatewayOrder = await createRazorpayOrder({
+      amount,
+      currency,
+      receipt: order.orderId,
+      notes: { orderId: order.orderId },
+    });
+    gatewayOrderId = gatewayOrder.id;
+  } catch (error) {
+    if (error instanceof RazorpayApiError) {
+      throw new OrderServiceError("We couldn't start the payment. Please try again.", 502);
+    }
+    throw new OrderServiceError("Online payment is not available right now.", 503);
+  }
+
+  // Conditional write: a concurrent duplicate of the same idempotent request
+  // cannot overwrite an already-stored gateway order.
+  const updated = await OrderModel.findOneAndUpdate(
+    {
+      _id: order._id,
+      $or: [{ "payment.gatewayOrderId": null }, { "payment.gatewayOrderId": { $exists: false } }],
+    },
+    { $set: { "payment.gatewayOrderId": gatewayOrderId, "payment.currency": currency } },
+    { returnDocument: "after", runValidators: true },
+  );
+
+  const stored =
+    updated?.payment?.gatewayOrderId
+    ?? (await OrderModel.findById(order._id).lean())?.payment?.gatewayOrderId
+    ?? gatewayOrderId;
+
+  return { orderId: order.orderId, razorpayOrderId: stored, keyId, amount, currency };
+}
+
+export interface VerifyPaymentInput {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}
+
+/**
+ * Parses the Razorpay Checkout handoff fields. The Checkout SDK sends
+ * snake_case; camelCase is also accepted so the endpoint is not brittle. Every
+ * value is shape-checked — nothing is trusted beyond its format.
+ */
+export function parseVerifyPaymentInput(value: unknown): VerifyPaymentInput {
+  if (!isRecord(value)) {
+    throw new OrderServiceError("Invalid payment confirmation.", 400);
+  }
+  const razorpayOrderId = requiredText(
+    value.razorpay_order_id ?? value.razorpayOrderId,
+    "Payment reference",
+    100,
+  );
+  const razorpayPaymentId = requiredText(
+    value.razorpay_payment_id ?? value.razorpayPaymentId,
+    "Payment id",
+    100,
+  );
+  const razorpaySignature = requiredText(
+    value.razorpay_signature ?? value.razorpaySignature,
+    "Payment signature",
+    256,
+  );
+
+  if (
+    !/^order_[A-Za-z0-9]+$/.test(razorpayOrderId)
+    || !/^pay_[A-Za-z0-9]+$/.test(razorpayPaymentId)
+    || !/^[0-9a-fA-F]+$/.test(razorpaySignature)
+  ) {
+    throw new OrderServiceError("Invalid payment confirmation.", 400);
+  }
+
+  return { razorpayOrderId, razorpayPaymentId, razorpaySignature };
+}
+
+export type VerifyPaymentStatus = "paid" | "pending";
+
+export interface VerifyPaymentResult {
+  status: VerifyPaymentStatus;
+  order: CustomerOrderDTO;
+}
+
+/**
+ * Verifies a Razorpay Checkout handoff and settles the order.
+ *
+ * Check order: the order must belong to the signed-in customer, must be an
+ * online order, and its stored gateway order id must match the one being
+ * confirmed. Only then is the handoff signature checked (`order_id|payment_id`
+ * keyed with the key secret). Finally the authoritative payment is fetched from
+ * Razorpay so amount and currency are validated against the stored order — the
+ * same consistency rules the webhook applies — before the guarded write.
+ *
+ * Never creates an order, never touches stock, and never trusts a client amount.
+ */
+export async function verifyOnlineOrderPayment(
+  orderId: string,
+  rawInput: unknown,
+  customerId: mongoose.Types.ObjectId | string,
+): Promise<VerifyPaymentResult> {
+  if (!customerId) {
+    throw new OrderServiceError("You must be signed in to do that.", 401);
+  }
+  const input = parseVerifyPaymentInput(rawInput);
+  await connectToDatabase();
+
+  const order = await OrderModel.findOne({ orderId, customerId });
+  if (!order) throw new OrderServiceError("Order not found.", 404);
+  if (order.payment?.method !== "RAZORPAY") {
+    throw new OrderServiceError("This order is not an online payment order.", 409);
+  }
+  if (!order.payment.gatewayOrderId || order.payment.gatewayOrderId !== input.razorpayOrderId) {
+    throw new OrderServiceError("This payment does not belong to the order.", 409);
+  }
+
+  // Idempotent fast path: a second confirmation for a paid order is a no-op.
+  if (order.payment.status === "PAID") {
+    const confirmation = await getOrderForCustomer(orderId, customerId);
+    if (!confirmation) throw new OrderServiceError("Order not found.", 404);
+    return { status: "paid", order: confirmation };
+  }
+
+  let keySecret: string;
+  try {
+    keySecret = getRazorpayKeySecret();
+  } catch {
+    throw new OrderServiceError("Online payment is not available right now.", 503);
+  }
+
+  if (
+    !verifyRazorpayCheckoutSignature(
+      {
+        orderId: input.razorpayOrderId,
+        paymentId: input.razorpayPaymentId,
+        signature: input.razorpaySignature,
+      },
+      keySecret,
+    )
+  ) {
+    throw new OrderServiceError(
+      "We could not verify your payment. If money was deducted, it will be reconciled shortly.",
+      400,
+    );
+  }
+
+  // Fetch the authoritative payment so amount and currency are checked against
+  // the server-side order rather than the browser's word.
+  let entity: Record<string, unknown>;
+  try {
+    entity = (await fetchRazorpayPayment(input.razorpayPaymentId)) as unknown as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof RazorpayApiError) {
+      throw new OrderServiceError(
+        "We couldn't confirm your payment right now. It will update shortly.",
+        502,
+      );
+    }
+    throw new OrderServiceError("Online payment is not available right now.", 503);
+  }
+
+  if (entity.order_id !== input.razorpayOrderId) {
+    throw new OrderServiceError("This payment does not belong to the order.", 409);
+  }
+
+  const outcome = await applyRazorpayCapturedPayment(entity, new Date());
+  const confirmation = await getOrderForCustomer(orderId, customerId);
+  if (!confirmation) throw new OrderServiceError("Order not found.", 404);
+
+  const settled = outcome.applied || confirmation.payment.status === "PAID";
+  return { status: settled ? "paid" : "pending", order: confirmation };
 }
 
 function isDuplicateKeyError(error: unknown): boolean {

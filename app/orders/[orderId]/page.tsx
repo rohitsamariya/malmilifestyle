@@ -63,12 +63,19 @@ export default function OrderConfirmationPage() {
   }
 
   const address = order.shippingAddress;
+  const isCod = order.payment.method === "COD";
+  const isOnlinePaid = !isCod && order.payment.status === "PAID";
+  const confirmationMessage = isCod
+    ? "Your Cash on Delivery order has been placed."
+    : isOnlinePaid
+      ? "Your payment was successful and your order is confirmed."
+      : "Your order is placed. We'll confirm your online payment shortly.";
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-12 sm:px-6">
       <div className="border-b border-beige pb-7">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-forest">Order confirmed</p>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-forest">{isOnlinePaid || isCod ? "Order confirmed" : "Order received"}</p>
         <h1 className="mt-2 font-display text-3xl font-bold text-forest">Thank you, {address.fullName}</h1>
-        <p className="mt-2 text-sm text-earth">Your Cash on Delivery order has been placed.</p>
+        <p className="mt-2 text-sm text-earth">{confirmationMessage}</p>
         <div className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
           <div><p className="text-xs text-earth-light">Order number</p><p className="mt-1 break-all font-bold text-forest">{order.orderId}</p></div>
           <div><p className="text-xs text-earth-light">Order status</p><p className="mt-1 font-bold text-forest">{order.orderStatus}</p></div>
@@ -107,7 +114,7 @@ export default function OrderConfirmationPage() {
             <div className="flex justify-between"><dt className="text-earth">Subtotal</dt><dd className="font-semibold text-forest">{formatPrice(order.subtotal)}</dd></div>
             <div className="flex justify-between"><dt className="text-earth">Shipping</dt><dd className="font-semibold text-forest">{order.shippingFee === 0 ? "Free" : formatPrice(order.shippingFee)}</dd></div>
             {order.discountAmount > 0 && <div className="flex justify-between"><dt className="text-earth">Discount</dt><dd className="font-semibold text-forest">−{formatPrice(order.discountAmount)}</dd></div>}
-            <div className="flex justify-between border-t border-beige pt-3 text-base"><dt className="font-bold text-forest">COD total</dt><dd className="font-black text-forest">{formatPrice(order.totalAmount)}</dd></div>
+            <div className="flex justify-between border-t border-beige pt-3 text-base"><dt className="font-bold text-forest">{isCod ? "Amount due on delivery" : "Total"}</dt><dd className="font-black text-forest">{formatPrice(order.totalAmount)}</dd></div>
           </dl>
         </aside>
       </div>

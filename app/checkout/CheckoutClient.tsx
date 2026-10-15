@@ -12,12 +12,82 @@ interface CheckoutPageProps {
   customer: CustomerDTO;
 }
 
+type PaymentMethod = "COD" | "RAZORPAY";
+
+interface CartLine {
+  productId: string;
+  variantId: string;
+  quantity: number;
+}
+
+interface CheckoutHandoff {
+  orderId: string;
+  razorpayOrderId: string;
+  keyId: string;
+  amount: number;
+  currency: string;
+}
+
 interface OrderResponse {
-  order?: {
-    orderId: string;
-    items: Array<{ productId: string; variantId: string; quantity: number }>;
-  };
+  order?: { orderId: string };
+  checkout?: CheckoutHandoff;
   error?: string;
+}
+
+interface RazorpayCheckoutResult {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description?: string;
+  order_id: string;
+  prefill?: { name?: string; email?: string; contact?: string };
+  theme?: { color?: string };
+  handler?: (response: RazorpayCheckoutResult) => void;
+  modal?: { ondismiss?: () => void };
+}
+
+interface RazorpayInstance {
+  open: () => void;
+  on: (event: string, handler: (response: unknown) => void) => void;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayOptions) => RazorpayInstance;
+  }
+}
+
+const RAZORPAY_SCRIPT_ID = "razorpay-checkout-js";
+const RAZORPAY_SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
+
+/** Loads Razorpay Checkout on demand. Resolves false when it cannot be loaded. */
+function loadRazorpayScript(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.Razorpay) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    const existing = document.getElementById(RAZORPAY_SCRIPT_ID) as HTMLScriptElement | null;
+    const script = existing ?? document.createElement("script");
+    const onLoad = () => resolve(Boolean(window.Razorpay));
+    const onError = () => resolve(false);
+
+    script.addEventListener("load", onLoad, { once: true });
+    script.addEventListener("error", onError, { once: true });
+
+    if (!existing) {
+      script.id = RAZORPAY_SCRIPT_ID;
+      script.src = RAZORPAY_SCRIPT_SRC;
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  });
 }
 
 function getCheckoutKey(items: Array<{ productId: string; variantId: string; quantity: number }>) {
@@ -45,7 +115,71 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
   const { items, subtotal, removePurchasedItems } = useCart();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
   const submittingRef = useRef(false);
+
+  function clearCheckoutKey() {
+    try {
+      sessionStorage.removeItem("malmi-checkout-idempotency");
+    } catch {
+      // Checkout can continue when browser storage is unavailable.
+    }
+  }
+
+  /** Opens Razorpay Checkout and resolves once the modal closes. */
+  async function payOnline(
+    handoff: CheckoutHandoff,
+    address: { fullName: string; email: string; phone: string },
+  ) {
+    const loaded = await loadRazorpayScript();
+    if (!loaded || !window.Razorpay) {
+      setError("We couldn't open the payment window. Your order is placed — you can retry payment from your orders.");
+      router.push(`/orders/${encodeURIComponent(handoff.orderId)}`);
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      const razorpay = new window.Razorpay!({
+        key: handoff.keyId,
+        amount: handoff.amount,
+        currency: handoff.currency,
+        name: "Malmi Lifestyle",
+        description: `Order ${handoff.orderId}`,
+        order_id: handoff.razorpayOrderId,
+        prefill: { name: address.fullName, email: address.email, contact: address.phone },
+        theme: { color: "#14532d" },
+        handler: async (response) => {
+          // Verify server-side. If this fast path fails, the webhook still
+          // reconciles and the order page reflects the settled state.
+          try {
+            await fetch(`/api/orders/${encodeURIComponent(handoff.orderId)}/verify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+          } catch {
+            // Swallow: the order exists and the webhook will settle it.
+          }
+          resolve();
+        },
+        modal: {
+          ondismiss: () => resolve(),
+        },
+      });
+
+      razorpay.on("payment.failed", () => {
+        // The modal stays open so the customer can retry another method.
+      });
+
+      razorpay.open();
+    });
+
+    router.push(`/orders/${encodeURIComponent(handoff.orderId)}`);
+  }
 
   async function placeOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,14 +202,20 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
       pincode: String(formData.get("pincode") || ""),
     };
 
+    const cartLines: CartLine[] = items.map(({ productId, variantId, quantity }) => ({
+      productId,
+      variantId,
+      quantity,
+    }));
+
     try {
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: items.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
+          items: cartLines,
           shippingAddress,
-          paymentMethod: "COD",
+          paymentMethod,
           idempotencyKey: getCheckoutKey(items),
         }),
       });
@@ -83,21 +223,24 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
       if (!response.ok || !result.order?.orderId) {
         throw new Error(result.error || "We couldn't place your order. Please try again.");
       }
-      try {
-        sessionStorage.removeItem("malmi-checkout-idempotency");
-      } catch {
-        // Checkout can continue when browser storage is unavailable.
+
+      // From here the order exists and its stock is reserved, so the idempotency
+      // key has done its job and the purchased lines may leave the cart. The
+      // server builds the order from exactly these submitted lines, so removing
+      // them by product/variant is precise.
+      clearCheckoutKey();
+      const orderId = result.order.orderId;
+      removePurchasedItems(cartLines);
+
+      if (paymentMethod === "RAZORPAY") {
+        if (!result.checkout) {
+          throw new Error("We couldn't start the payment. Please try again.");
+        }
+        await payOnline(result.checkout, shippingAddress);
+        return;
       }
-      // Only the purchased lines leave the cart; anything the customer added
-      // while waiting (or a partially ordered cart) is preserved.
-      removePurchasedItems(
-        result.order.items.map(({ productId, variantId, quantity }) => ({
-          productId,
-          variantId,
-          quantity,
-        })),
-      );
-      router.push(`/orders/${encodeURIComponent(result.order.orderId)}`);
+
+      router.push(`/orders/${encodeURIComponent(orderId)}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "We couldn't place your order.");
       submittingRef.current = false;
@@ -119,14 +262,18 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
 
   const fieldClass = "mt-1.5 h-11 w-full rounded-lg border border-sand bg-white px-3.5 text-sm text-forest outline-none focus:border-forest";
   const labelClass = "block text-xs font-semibold text-earth";
+  const buttonLabel = submitting
+    ? "Placing order..."
+    : paymentMethod === "RAZORPAY"
+      ? "Pay & Place Order"
+      : "Place COD Order";
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
       <Link href="/cart" className="text-sm font-semibold text-earth hover:text-forest">&larr; Back to cart</Link>
       <h1 className="mt-4 font-display text-3xl font-bold text-forest">Delivery details</h1>
       <p className="mt-2 text-sm text-earth">
-        Your order will be paid for in cash when it arrives. Signed in as{" "}
-        <span className="font-semibold text-forest">{customer.email}</span> —{" "}
+        Signed in as <span className="font-semibold text-forest">{customer.email}</span> —{" "}
         <Link href="/profile" className="font-semibold text-forest underline underline-offset-4">
           your account
         </Link>
@@ -181,18 +328,41 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
 
           <section aria-labelledby="payment-heading">
             <h2 id="payment-heading" className="text-lg font-bold text-forest">Payment</h2>
-            <div className="mt-4 flex items-start gap-3 border-l-4 border-forest bg-white px-4 py-3">
-              <span aria-hidden className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-4 border-forest" />
-              <div>
-                <p className="text-sm font-bold text-forest">Cash on Delivery (COD)</p>
-                <p className="mt-1 text-xs leading-relaxed text-earth">Pay the order total in cash when your delivery arrives.</p>
-              </div>
+            <div className="mt-4 space-y-3">
+              <label className="flex cursor-pointer items-start gap-3 border-l-4 border-forest bg-white px-4 py-3">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="COD"
+                  checked={paymentMethod === "COD"}
+                  onChange={() => setPaymentMethod("COD")}
+                  className="mt-1 h-4 w-4 accent-forest"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-forest">Cash on Delivery (COD)</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-earth">Pay the order total in cash when your delivery arrives.</span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 border-l-4 border-sand bg-white px-4 py-3">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="RAZORPAY"
+                  checked={paymentMethod === "RAZORPAY"}
+                  onChange={() => setPaymentMethod("RAZORPAY")}
+                  className="mt-1 h-4 w-4 accent-forest"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-forest">Pay Online (UPI / Card / Netbanking)</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-earth">Pay securely through Razorpay. Your order is confirmed as soon as the payment succeeds.</span>
+                </span>
+              </label>
             </div>
           </section>
 
           {error && <p role="alert" className="border-l-4 border-red-600 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
           <button type="submit" disabled={submitting} className="flex h-12 w-full items-center justify-center rounded-lg bg-forest px-6 text-sm font-bold text-cream transition-colors hover:bg-[#1b4d30] disabled:cursor-wait disabled:opacity-60 sm:w-auto">
-            {submitting ? "Placing order..." : "Place COD Order"}
+            {buttonLabel}
           </button>
         </form>
 
