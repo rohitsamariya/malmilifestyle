@@ -22,6 +22,18 @@ export interface IOrderAddress {
   city: string;
   state: string;
   pincode: string;
+  /**
+   * Structured parts, only present when the order was placed from a saved
+   * address. The two `addressLine*` strings are always the authoritative
+   * delivery lines; these extras are kept for fulfilment/reference and are
+   * optional so legacy and hand-entered orders remain valid.
+   */
+  label?: string;
+  house?: string;
+  building?: string;
+  locality?: string;
+  landmark?: string;
+  country?: string;
 }
 
 /** A gateway-reported refund recorded against an order. Never created by Malmi. */
@@ -127,6 +139,12 @@ const OrderSchema = new Schema<IOrder>(
       city: { type: String, required: true },
       state: { type: String, required: true },
       pincode: { type: String, required: true },
+      label: { type: String, default: "" },
+      house: { type: String, default: "" },
+      building: { type: String, default: "" },
+      locality: { type: String, default: "" },
+      landmark: { type: String, default: "" },
+      country: { type: String, default: "" },
     },
     subtotal: { type: Number, required: true },
     shippingFee: { type: Number, default: 0 },

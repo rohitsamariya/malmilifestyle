@@ -48,6 +48,7 @@ type RazorpayApi = typeof import("@/lib/payments/razorpay-api");
 type OrderModelModule = typeof import("@/models/Order");
 type ProductModelModule = typeof import("@/models/Product");
 type CategoryModelModule = typeof import("@/models/Category");
+type CustomerModelModule = typeof import("@/models/Customer");
 
 let db: DbModule;
 let orders: OrderService;
@@ -55,6 +56,7 @@ let razorpayApi: RazorpayApi;
 let OrderModel: OrderModelModule["default"];
 let ProductModel: ProductModelModule["default"];
 let CategoryModel: CategoryModelModule["default"];
+let CustomerModel: CustomerModelModule["default"];
 
 const CATEGORY_ID = "test-category-checkout";
 const PRODUCT_ID = "test-product-checkout";
@@ -230,6 +232,7 @@ before(async () => {
   OrderModel = (await import("@/models/Order")).default;
   ProductModel = (await import("@/models/Product")).default;
   CategoryModel = (await import("@/models/Category")).default;
+  CustomerModel = (await import("@/models/Customer")).default;
 
   await db.connectToDatabase();
   await Promise.all([
@@ -401,6 +404,57 @@ test("creating an online order reserves stock and stores a gateway order", async
 
   const stockAfterReplay = (await ProductModel.findOne({ productId: PRODUCT_ID }).lean())!.variants[0].stock;
   assert.equal(stockAfterReplay, stockBefore - 1, "a replay must not deduct stock again");
+});
+
+test("an online order can snapshot a saved address by id", async (t) => {
+  if (!transactionsAvailable) {
+    t.skip("MongoDB is a standalone server; multi-document transactions are unavailable");
+    return;
+  }
+
+  const customer = await CustomerModel.create({
+    email: "saved-address-rzp@example.com",
+    fullName: "Saved Online Buyer",
+    phone: "9876500020",
+    isActive: true,
+    addresses: [
+      {
+        label: "Office",
+        fullName: "Saved Online Buyer",
+        phone: "9876500020",
+        house: "5 Saved Avenue",
+        building: "Block C",
+        locality: "Baner",
+        landmark: "Near Mall",
+        city: "Pune",
+        state: "Maharashtra",
+        pincode: "411045",
+        country: "India",
+        isDefault: true,
+      },
+    ],
+  });
+  const addressId = String(customer.addresses[0]._id);
+
+  try {
+    const { order, checkout } = await orders.createOnlineOrder(
+      onlineRequest({
+        idempotencyKey: "online-saved-address-key-1",
+        shippingAddress: undefined,
+        shippingAddressId: addressId,
+      }),
+      customer.id,
+    );
+
+    assert.equal(order.payment.method, "RAZORPAY");
+    assert.match(checkout.razorpayOrderId, /^order_TEST\d+$/);
+    assert.equal(order.shippingAddress.fullName, "Saved Online Buyer");
+    assert.equal(order.shippingAddress.addressLine1, "5 Saved Avenue, Block C");
+    assert.equal(order.shippingAddress.label, "Office");
+    assert.equal(order.shippingAddress.email, "saved-address-rzp@example.com");
+  } finally {
+    await CustomerModel.deleteOne({ _id: customer.id });
+  }
 });
 
 test("a checkout key cannot be reused across payment methods", async (t) => {

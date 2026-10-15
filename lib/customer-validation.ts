@@ -130,6 +130,44 @@ export function parseLoginInput(value: unknown): LoginInput {
   return { email, password };
 }
 
+export interface ProfileUpdateInput {
+  name: string;
+  phone: string;
+}
+
+/**
+ * Validates an editable profile update. Email is intentionally not accepted:
+ * it is the account identity (and the login credential), so changing it needs
+ * a dedicated re-verification flow that does not exist yet.
+ */
+export function parseProfileUpdateInput(value: unknown): ProfileUpdateInput {
+  if (!isRecord(value)) {
+    throw new CustomerValidationError("Invalid profile request.", 400);
+  }
+
+  const fieldErrors: Record<string, string> = {};
+
+  const name = typeof value.name === "string" ? value.name.trim().replace(/\s+/g, " ") : "";
+  if (name.length < MIN_NAME_LENGTH) {
+    fieldErrors.name = "Enter your full name.";
+  } else if (name.length > MAX_NAME_LENGTH) {
+    fieldErrors.name = `Name must be ${MAX_NAME_LENGTH} characters or fewer.`;
+  }
+
+  const phone = normalizePhone(value.phone);
+  if (!phone) {
+    fieldErrors.phone = "Mobile number is required.";
+  } else if (!INDIAN_MOBILE_PATTERN.test(phone)) {
+    fieldErrors.phone = "Enter a valid 10-digit Indian mobile number.";
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    throw new CustomerValidationError("Please correct the highlighted fields.", 400, fieldErrors);
+  }
+
+  return { name, phone };
+}
+
 /** Hashes a plaintext password. The plaintext is never stored or logged. */
 export function hashPassword(password: string): Promise<string> {
   return hash(password, PASSWORD_HASH_ROUNDS);

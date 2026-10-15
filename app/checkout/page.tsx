@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { requireCustomerPage } from "@/lib/customerAuth";
+import { listCustomerAddresses } from "@/lib/address-service";
 import CheckoutClient from "./CheckoutClient";
 
 export const metadata: Metadata = {
@@ -11,5 +12,6 @@ export default async function CheckoutPage() {
   // Redirects to /login?redirect=%2Fcheckout when there is no valid session.
   // The cart is untouched by the redirect, so nothing is lost by signing in.
   const customer = await requireCustomerPage("/checkout");
-  return <CheckoutClient customer={customer} />;
+  const addresses = await listCustomerAddresses(customer.id);
+  return <CheckoutClient customer={customer} addresses={addresses} />;
 }

@@ -3,13 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
+import AddressForm, {
+  EMPTY_ADDRESS_FORM,
+  type AddressFormValue,
+} from "@/components/address/AddressForm";
+import { formatAddressSummary } from "@/lib/address-display";
 import { useCart } from "@/lib/cartContext";
 import { formatPrice } from "@/lib/utils";
 import type { CustomerDTO } from "@/lib/customerAuth";
+import type { CustomerAddressDTO } from "@/lib/address-service";
 
 interface CheckoutPageProps {
   /** Server-verified session identity. Used only to prefill the form. */
   customer: CustomerDTO;
+  /** The customer's saved addresses, loaded server-side and scoped to them. */
+  addresses: CustomerAddressDTO[];
 }
 
 type PaymentMethod = "COD" | "RAZORPAY";
@@ -32,6 +40,12 @@ interface OrderResponse {
   order?: { orderId: string };
   checkout?: CheckoutHandoff;
   error?: string;
+}
+
+interface AddressCreateResponse {
+  createdId?: string;
+  error?: string;
+  fieldErrors?: Record<string, string>;
 }
 
 interface RazorpayCheckoutResult {
@@ -110,13 +124,25 @@ function getCheckoutKey(items: Array<{ productId: string; variantId: string; qua
   }
 }
 
-export default function CheckoutPage({ customer }: CheckoutPageProps) {
+export default function CheckoutPage({ customer, addresses }: CheckoutPageProps) {
   const router = useRouter();
   const { items, subtotal, removePurchasedItems } = useCart();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
+  const [selection, setSelection] = useState<string>(
+    () => addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id ?? "__new__",
+  );
+  const [saveNewAddress, setSaveNewAddress] = useState(true);
+  const [newAddress, setNewAddress] = useState<AddressFormValue>(() => ({
+    ...EMPTY_ADDRESS_FORM,
+    fullName: customer.name,
+    phone: customer.phone,
+  }));
   const submittingRef = useRef(false);
+
+  const hasSavedAddresses = addresses.length > 0;
+  const showingNewAddressForm = !hasSavedAddresses || selection === "__new__";
 
   function clearCheckoutKey() {
     try {
@@ -189,17 +215,27 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
     setError("");
 
     const formData = new FormData(event.currentTarget);
-    // Email and name are prefilled from the account but stay editable: they are
-    // only ever treated as delivery details, never as proof of identity.
-    const shippingAddress = {
-      fullName: String(formData.get("fullName") || ""),
-      phone: String(formData.get("phone") || ""),
-      email: String(formData.get("email") || ""),
-      addressLine1: String(formData.get("addressLine1") || ""),
-      addressLine2: String(formData.get("addressLine2") || ""),
-      city: String(formData.get("city") || ""),
-      state: String(formData.get("state") || ""),
-      pincode: String(formData.get("pincode") || ""),
+    // Email is account-level. The address is either a saved one (referenced by
+    // id) or a freshly entered one. Nothing here is ever proof of identity.
+    const email = String(formData.get("email") || "");
+
+    let shippingAddressId: string | undefined;
+    let shippingAddress:
+      | {
+          fullName: string;
+          phone: string;
+          email: string;
+          addressLine1: string;
+          addressLine2: string;
+          city: string;
+          state: string;
+          pincode: string;
+        }
+      | undefined;
+    let contact: { fullName: string; phone: string; email: string } = {
+      fullName: "",
+      phone: "",
+      email,
     };
 
     const cartLines: CartLine[] = items.map(({ productId, variantId, quantity }) => ({
@@ -209,14 +245,53 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
     }));
 
     try {
+      if (!showingNewAddressForm) {
+        const selected = addresses.find((address) => address.id === selection);
+        if (!selected) throw new Error("Choose a delivery address.");
+        shippingAddressId = selected.id;
+        contact = { fullName: selected.fullName, phone: selected.phone, email };
+      } else if (saveNewAddress) {
+        // Persist first, then reference it by id so checkout and the address book
+        // share one canonical record instead of two divergent copies.
+        const saveResponse = await fetch("/api/addresses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...newAddress, isDefault: addresses.length === 0 }),
+        });
+        const saved = (await saveResponse.json().catch(() => ({}))) as AddressCreateResponse;
+        if (!saveResponse.ok || !saved.createdId) {
+          throw new Error(saved.error || "We couldn't save your address. Please try again.");
+        }
+        shippingAddressId = saved.createdId;
+        contact = { fullName: newAddress.fullName, phone: newAddress.phone, email };
+      } else {
+        shippingAddress = {
+          fullName: newAddress.fullName,
+          phone: newAddress.phone,
+          email,
+          addressLine1: [newAddress.house, newAddress.building]
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .join(", "),
+          addressLine2: [newAddress.locality, newAddress.landmark]
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .join(", "),
+          city: newAddress.city,
+          state: newAddress.state,
+          pincode: newAddress.pincode,
+        };
+        contact = { fullName: newAddress.fullName, phone: newAddress.phone, email };
+      }
+
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: cartLines,
-          shippingAddress,
           paymentMethod,
           idempotencyKey: getCheckoutKey(items),
+          ...(shippingAddressId ? { shippingAddressId } : { shippingAddress }),
         }),
       });
       const result = (await response.json()) as OrderResponse;
@@ -236,7 +311,7 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
         if (!result.checkout) {
           throw new Error("We couldn't start the payment. Please try again.");
         }
-        await payOnline(result.checkout, shippingAddress);
+        await payOnline(result.checkout, contact);
         return;
       }
 
@@ -282,18 +357,11 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
         <form onSubmit={placeOrder} className="space-y-8">
-          <section aria-labelledby="customer-heading" className="border-b border-beige pb-8">
-            <h2 id="customer-heading" className="text-lg font-bold text-forest">Customer details</h2>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <section aria-labelledby="contact-heading" className="border-b border-beige pb-8">
+            <h2 id="contact-heading" className="text-lg font-bold text-forest">Contact</h2>
+            <p className="mt-1 text-xs text-earth">Used for your order confirmation and payment receipt.</p>
+            <div className="mt-5">
               <label className={labelClass}>
-                Full name
-                <input className={fieldClass} name="fullName" autoComplete="name" maxLength={200} defaultValue={customer.name} required />
-              </label>
-              <label className={labelClass}>
-                Mobile number
-                <input className={fieldClass} name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={32} placeholder="10-digit mobile number" defaultValue={customer.phone} required />
-              </label>
-              <label className={`${labelClass} sm:col-span-2`}>
                 Email <span className="font-normal text-earth-light">(optional)</span>
                 <input className={fieldClass} name="email" type="email" autoComplete="email" maxLength={254} defaultValue={customer.email} />
               </label>
@@ -301,29 +369,77 @@ export default function CheckoutPage({ customer }: CheckoutPageProps) {
           </section>
 
           <section aria-labelledby="address-heading" className="border-b border-beige pb-8">
-            <h2 id="address-heading" className="text-lg font-bold text-forest">Shipping address</h2>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <label className={`${labelClass} sm:col-span-2`}>
-                Address line 1
-                <input className={fieldClass} name="addressLine1" autoComplete="address-line1" maxLength={200} required />
-              </label>
-              <label className={`${labelClass} sm:col-span-2`}>
-                Address line 2 <span className="font-normal text-earth-light">(optional)</span>
-                <input className={fieldClass} name="addressLine2" autoComplete="address-line2" maxLength={200} />
-              </label>
-              <label className={labelClass}>
-                City
-                <input className={fieldClass} name="city" autoComplete="address-level2" maxLength={200} required />
-              </label>
-              <label className={labelClass}>
-                State
-                <input className={fieldClass} name="state" autoComplete="address-level1" maxLength={200} required />
-              </label>
-              <label className={labelClass}>
-                Pincode
-                <input className={fieldClass} name="pincode" inputMode="numeric" autoComplete="postal-code" maxLength={6} pattern="[0-9]{6}" required />
-              </label>
-            </div>
+            <h2 id="address-heading" className="text-lg font-bold text-forest">Delivery address</h2>
+
+            {hasSavedAddresses && (
+              <fieldset className="mt-5 space-y-3">
+                <legend className="sr-only">Choose a delivery address</legend>
+                {addresses.map((address) => (
+                  <label
+                    key={address.id}
+                    className={`flex cursor-pointer items-start gap-3 border-l-4 bg-white px-4 py-3 ${selection === address.id ? "border-forest" : "border-sand"}`}
+                  >
+                    <input
+                      type="radio"
+                      name="addressChoice"
+                      value={address.id}
+                      checked={selection === address.id}
+                      onChange={() => setSelection(address.id)}
+                      className="mt-1 h-4 w-4 accent-forest"
+                    />
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-cream px-2 py-0.5 text-xs font-bold text-forest">{address.label}</span>
+                        {address.isDefault && (
+                          <span className="rounded-full bg-forest px-2 py-0.5 text-xs font-bold text-cream">Default</span>
+                        )}
+                      </span>
+                      <span className="mt-1 block text-sm font-bold text-forest">
+                        {address.fullName} · {address.phone}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-earth">{formatAddressSummary(address)}</span>
+                    </span>
+                  </label>
+                ))}
+                <label
+                  className={`flex cursor-pointer items-start gap-3 border-l-4 bg-white px-4 py-3 ${selection === "__new__" ? "border-forest" : "border-sand"}`}
+                >
+                  <input
+                    type="radio"
+                    name="addressChoice"
+                    value="__new__"
+                    checked={selection === "__new__"}
+                    onChange={() => setSelection("__new__")}
+                    className="mt-1 h-4 w-4 accent-forest"
+                  />
+                  <span className="text-sm font-bold text-forest">Use a different address</span>
+                </label>
+              </fieldset>
+            )}
+
+            {showingNewAddressForm && (
+              <div className="mt-5">
+                {hasSavedAddresses && <h3 className="text-sm font-bold text-forest">New address</h3>}
+                <div className="mt-3">
+                  <AddressForm
+                    value={newAddress}
+                    onChange={(field, value) => setNewAddress((prev) => ({ ...prev, [field]: value }))}
+                    idPrefix="checkout"
+                    disabled={submitting}
+                  />
+                </div>
+                <label className="mt-4 flex items-center gap-3 text-sm text-forest">
+                  <input
+                    type="checkbox"
+                    checked={saveNewAddress}
+                    onChange={(event) => setSaveNewAddress(event.target.checked)}
+                    className="h-4 w-4 accent-forest"
+                    disabled={submitting}
+                  />
+                  Save this address to my address book
+                </label>
+              </div>
+            )}
           </section>
 
           <section aria-labelledby="payment-heading">

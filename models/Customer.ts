@@ -1,14 +1,28 @@
 import mongoose, { Schema, Document } from "mongoose";
+import { ADDRESS_LABELS, type AddressLabel } from "@/lib/address-constants";
 
+/**
+ * A saved delivery address.
+ *
+ * `addressLine1`/`addressLine2` are intentionally NOT stored here: the address
+ * book keeps the structured parts (`house`, `building`, `locality`, `landmark`)
+ * and the server composes the two free-text lines only when snapshotting onto an
+ * order. New fields default to `""` and are validated in the service layer, so
+ * no destructive migration is needed for existing customer documents.
+ */
 export interface ICustomerAddress {
   _id?: mongoose.Types.ObjectId;
+  label: AddressLabel;
   fullName: string;
   phone: string;
-  addressLine1: string;
-  addressLine2?: string;
+  house: string;
+  building: string;
+  locality: string;
+  landmark: string;
   city: string;
   state: string;
   pincode: string;
+  country: string;
   isDefault: boolean;
 }
 
@@ -30,13 +44,17 @@ export interface ICustomer extends Document {
 }
 
 const CustomerAddressSchema = new Schema<ICustomerAddress>({
+  label: { type: String, enum: [...ADDRESS_LABELS], default: "Home" },
   fullName: { type: String, required: true },
   phone: { type: String, required: true },
-  addressLine1: { type: String, required: true },
-  addressLine2: { type: String, default: "" },
+  house: { type: String, default: "" },
+  building: { type: String, default: "" },
+  locality: { type: String, default: "" },
+  landmark: { type: String, default: "" },
   city: { type: String, required: true },
   state: { type: String, required: true },
   pincode: { type: String, required: true },
+  country: { type: String, default: "India" },
   isDefault: { type: Boolean, default: false },
 });
 

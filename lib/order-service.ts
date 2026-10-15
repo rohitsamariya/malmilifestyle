@@ -16,6 +16,7 @@ import { createRazorpayPayment } from "@/lib/payments/razorpay-payment";
 import { applyRazorpayCapturedPayment } from "@/lib/payments/razorpay-webhook";
 import type { PaymentRecord } from "@/lib/payments/types";
 import { calculateManualShipping, createManualShipment } from "@/lib/shipping/manual";
+import { resolveShippingAddress } from "@/lib/address-service";
 import CategoryModel from "@/models/Category";
 import OrderModel, { type IOrder, type IOrderAddress } from "@/models/Order";
 import ProductModel from "@/models/Product";
@@ -41,7 +42,12 @@ interface CreateOrderInput {
   idempotencyKey: string;
   paymentMethod: "COD" | "RAZORPAY";
   items: RequestedItem[];
-  shippingAddress: IOrderAddress;
+  /**
+   * Exactly one of these is set by `parseCreateOrderInput`: either the id of a
+   * saved address the customer owns (preferred), or an inline address snapshot.
+   */
+  shippingAddress?: IOrderAddress;
+  shippingAddressId?: string;
 }
 
 const ORDER_STATUSES = ["PLACED", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
@@ -207,6 +213,26 @@ export function parseCreateOrderInput(value: unknown): CreateOrderInput {
     quantities.set(key, { productId, variantId, quantity: totalQuantity });
   }
 
+  // A saved address is referenced by id and resolved server-side (and scoped to
+  // the customer). Anything other than a well-formed ObjectId is rejected here so
+  // the resolution step can only ever see a syntactically valid reference.
+  const shippingAddressId =
+    typeof value.shippingAddressId === "string" ? value.shippingAddressId.trim() : "";
+  if (shippingAddressId) {
+    if (!/^[a-fA-F0-9]{24}$/.test(shippingAddressId)) {
+      throw new OrderServiceError("Choose a valid delivery address.", 400);
+    }
+    if (value.shippingAddress !== undefined) {
+      throw new OrderServiceError("Choose a delivery address in only one way.", 400);
+    }
+    return {
+      idempotencyKey: value.idempotencyKey,
+      paymentMethod: value.paymentMethod,
+      items: Array.from(quantities.values()),
+      shippingAddressId,
+    };
+  }
+
   return {
     idempotencyKey: value.idempotencyKey,
     paymentMethod: value.paymentMethod,
@@ -317,6 +343,20 @@ async function createOrderForCustomer(
         return;
       }
 
+      // Resolve the delivery address inside the transaction. A saved address is
+      // read from the customer's own document, so ownership is guaranteed and the
+      // order stores a snapshot that later edits or deletion cannot change.
+      let shippingAddress: IOrderAddress;
+      if (input.shippingAddressId) {
+        const resolved = await resolveShippingAddress(customerId, input.shippingAddressId, session);
+        if (!resolved) {
+          throw new OrderServiceError("The selected delivery address is no longer available.", 404);
+        }
+        shippingAddress = resolved;
+      } else {
+        shippingAddress = input.shippingAddress as IOrderAddress;
+      }
+
       const snapshots: Array<{
         productId: string;
         variantId: string;
@@ -381,7 +421,7 @@ async function createOrderForCustomer(
           idempotencyKey: input.idempotencyKey,
           customerId,
           items: snapshots,
-          shippingAddress: input.shippingAddress,
+          shippingAddress,
           subtotal,
           shippingFee,
           discountAmount,
@@ -648,11 +688,19 @@ export interface CustomerOrderDTO {
   shipment: { provider: string; status: string };
 }
 
+export interface OrderSummaryItemDTO {
+  productName: string;
+  variantSize: string;
+  quantity: number;
+}
+
 export interface CustomerOrderSummaryDTO {
   orderId: string;
   orderStatus: IOrder["orderStatus"];
   createdAt: Date;
   itemCount: number;
+  /** A compact line list so the account page can show what was ordered. */
+  items: OrderSummaryItemDTO[];
   totalAmount: number;
   payment: { method: string; status: string };
   paidAt?: Date | null;
@@ -661,6 +709,14 @@ export interface CustomerOrderSummaryDTO {
 
 function countOrderItems(items: IOrder["items"]): number {
   return (items ?? []).reduce((total, item) => total + item.quantity, 0);
+}
+
+function toOrderSummaryItems(items: IOrder["items"]): OrderSummaryItemDTO[] {
+  return (items ?? []).map((item) => ({
+    productName: item.productName,
+    variantSize: item.variantSize,
+    quantity: item.quantity,
+  }));
 }
 
 function toOrderItemDTOs(items: IOrder["items"]): OrderItemDTO[] {
@@ -692,6 +748,7 @@ function toOrderSummary(order: {
     orderStatus: order.orderStatus,
     createdAt: order.createdAt,
     itemCount: countOrderItems(order.items),
+    items: toOrderSummaryItems(order.items),
     totalAmount: order.totalAmount,
     payment: {
       method: order.payment?.method ?? "COD",

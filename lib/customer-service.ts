@@ -11,6 +11,7 @@ import {
   CustomerValidationError,
   hashPassword,
   parseLoginInput,
+  parseProfileUpdateInput,
   parseRegisterInput,
   verifyPassword,
   type LoginInput,
@@ -95,4 +96,41 @@ export async function getCustomerById(customerId: string): Promise<CustomerDTO |
   await connectToDatabase();
   const customer = await CustomerModel.findById(customerId).lean();
   return customer ? toCustomerDTO(customer) : null;
+}
+
+/**
+ * Updates the editable contact details on an existing, active account.
+ *
+ * Only the authenticated customer's own record can be touched — the caller must
+ * pass the id resolved from the session, never from the request body. Changing
+ * the mobile number clears any prior verification, because the stored flag must
+ * never describe a number the customer no longer controls.
+ */
+export async function updateCustomerProfile(
+  customerId: string,
+  rawInput: unknown,
+): Promise<CustomerDTO> {
+  const input = parseProfileUpdateInput(rawInput);
+  await connectToDatabase();
+
+  const current = await CustomerModel.findOne({ _id: customerId, isActive: true }).lean();
+  if (!current) {
+    throw new CustomerValidationError("Your account could not be found.", 404);
+  }
+
+  const update: Record<string, unknown> = { fullName: input.name, phone: input.phone };
+  if ((current.phone ?? "") !== input.phone) {
+    update.phoneVerified = false;
+  }
+
+  const updated = await CustomerModel.findOneAndUpdate(
+    { _id: customerId, isActive: true },
+    { $set: update },
+    { returnDocument: "after", runValidators: true },
+  ).lean();
+
+  if (!updated) {
+    throw new CustomerValidationError("Your account could not be found.", 404);
+  }
+  return toCustomerDTO(updated);
 }
